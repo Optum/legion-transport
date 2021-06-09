@@ -1,31 +1,91 @@
-# Welcome to your new OSS project
+Legion::Transport
+=====
 
-This project currently has the base documentation files required.  Replace this
-file with your own README.md.
+Legion::Transport is the gem responsible for connecting LegionIO to the FIFO queue system(RabbitMQ over AMQP 0.9.1)
 
-## Files included
+Supported Ruby versions and implementations
+------------------------------------------------
 
-**CODE_OF_CONDUCT.md**
+Legion::Transport should work identically on:
 
-Use without changes
+* JRuby 9.2+
+* Ruby 2.4+
 
-**INDIVIDUAL_CONTRIBUTOR_LICENSE.md**
 
-Use without changes
+Installation and Usage
+------------------------
 
-**CONTRIBUTING.md**
+You can verify your installation using this piece of code:
 
-This file has some portions that are required and others that can be customized.
-Customize the Coding Standards section to mention the languages used by your project.
-Feel free to add any rules and requirements that you would like people to follow
-when contributing to your project.
+```bash
+gem install legion-transport
+```
 
-**NOTICE.txt**
+```ruby
+require 'legion/transport'
+conn = Legion::Transport::Connection
+conn.setup
+conn.channel # => ::Bunny::Channel
+conn.session # => ::Bunny::Session
+```
 
-This file is needed if your project is licensed under the Apache 2.0 license.  
-If you are using this license, fill it out according to the prompts.  Otherwise,
-delete this file.
+Settings
+----------
 
-## Additional Repo Updates
+```json
+{
+  "type": "rabbitmq",
+  "connected": false,
+  "logger_level": "info",
+  "messages": {
+    "encrypt": false,
+    "ttl": null,
+    "priority": 0,
+    "persistent": true
+  },
+  "prefetch": 2,
+  "exchanges": {
+    "type": "topic",
+    "arguments": {},
+    "auto_delete": false,
+    "durable": true,
+    "internal": false
+  },
+  "queues": {
+    "manual_ack": true,
+    "durable": true,
+    "exclusive": false,
+    "block": false,
+    "auto_delete": false,
+    "arguments": {
+      "x-max-priority": 255,
+      "x-overflow": "reject-publish"
+    }
+  },
+  "connection": {
+    "read_timeout": 1,
+    "heartbeat": 30,
+    "automatically_recover": true,
+    "continuation_timeout": 4000,
+    "network_recovery_interval": 1,
+    "connection_timeout": 1,
+    "frame_max": 65536,
+    "user": "guest",
+    "password": "guest",
+    "host": "127.0.0.1",
+    "port": "5672",
+    "vhost": "/",
+    "recovery_attempts": 100,
+    "logger_level": "info",
+    "connected": false
+  },
+  "channel": {
+    "default_worker_pool_size": 1,
+    "session_worker_pool_size": 8
+  }
+}
+```
+Authors
+----------
 
-Make sure that you have a project description and appropriate repository topics.
+* [Matthew Iverson](https://github.com/Esity) - current maintainer
