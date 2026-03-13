@@ -24,6 +24,16 @@ Metrics/ModuleLength:
 
 Metrics/BlockLength:
   Max: 40
+  AllowedPatterns: ['describe', 'context', 'it', 'shared_examples']
+  Exclude:
+    - 'spec/**/*'
+
+Naming/PredicateMethod:
+  Enabled: false
+
+Style/OneClassPerFile:
+  Exclude:
+    - 'lib/legion/transport/messages/task_update.rb'
 
 Metrics/AbcSize:
   Max: 60

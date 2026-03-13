@@ -4,13 +4,8 @@ require 'legion/transport/exchanges/task'
 
 module Legion
   module Exception
-    class InvalidTaskStatus < ArgumentError
-      # exception class
-    end
-
-    class InvalidTaskId < ArgumentError
-      # exception class
-    end
+    class InvalidTaskStatus < ArgumentError; end
+    class InvalidTaskId < ArgumentError; end
   end
 end
 

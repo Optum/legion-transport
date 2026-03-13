@@ -12,7 +12,7 @@ module Legion
 
     class << self
       def logger
-        @logger unless @logger.nil?
+        return @logger unless @logger.nil?
 
         if ::Legion.const_defined?('Logging')
           @logger = ::Legion::Logging
