@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Legion
   module Transport
     module Messages
@@ -14,7 +16,7 @@ module Legion
           @options
         end
 
-        def routing_key # rubocop:disable Metrics/AbcSize
+        def routing_key
           if @options.key? :routing_key
             @options[:routing_key]
           elsif @options[:conditions].is_a?(String) && @options[:conditions].length > 2

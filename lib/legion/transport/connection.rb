@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'concurrent-ruby'
 
 module Legion
@@ -22,32 +24,20 @@ module Legion
           setup(connection_name: connection_name)
         end
 
-        def setup(connection_name: 'Legion', **) # rubocop:disable Metrics/AbcSize,Metrics/MethodLength
+        def setup(connection_name: 'Legion', **)
           Legion::Transport.logger.info("Using transport connector: #{Legion::Transport::CONNECTOR}")
 
           if @session.respond_to?(:value) && session.respond_to?(:closed?) && session.closed?
             @channel_thread = Concurrent::ThreadLocalVar.new(nil)
           elsif @session.respond_to?(:value) && session.respond_to?(:closed?) && session.open?
             nil
-          elsif Legion::Transport::TYPE == 'march_hare'
-            @session ||= Concurrent::AtomicReference.new(
-              MarchHare.connect(host: settings[:connection][:host],
-                                vhost: settings[:connection][:vhost],
-                                user: settings[:connection][:user],
-                                password: settings[:connection][:password],
-                                port: settings[:connection][:port])
-            )
-            @channel_thread = Concurrent::ThreadLocalVar.new(nil)
-            session.start
-            session.create_channel.basic_qos(settings[:prefetch])
-            Legion::Settings[:transport][:connected] = true
           else
             @session ||= Concurrent::AtomicReference.new(
               connector.new(
                 Legion::Settings[:transport][:connection],
                 connection_name: connection_name,
-                logger: Legion::Transport.logger,
-                log_level: :info
+                logger:          Legion::Transport.logger,
+                log_level:       :info
               )
             )
             @channel_thread = Concurrent::ThreadLocalVar.new(nil)
@@ -57,9 +47,7 @@ module Legion
             Legion::Settings[:transport][:connected] = true
           end
 
-          if session.respond_to? :on_blocked
-            session.on_blocked { Legion::Transport.logger.warn('Legion::Transport is being blocked by RabbitMQ!') }
-          end
+          session.on_blocked { Legion::Transport.logger.warn('Legion::Transport is being blocked by RabbitMQ!') } if session.respond_to? :on_blocked
 
           if session.respond_to? :on_unblocked
             session.on_unblocked do
@@ -76,15 +64,11 @@ module Legion
           true
         end
 
-        def channel # rubocop:disable Metrics/AbcSize
+        def channel
           return @channel_thread.value if !@channel_thread.value.nil? && @channel_thread.value.open?
 
           @channel_thread.value = session.create_channel(nil, settings[:channel][:default_worker_pool_size], false, 10)
-          if Legion::Transport::TYPE == 'march_hare'
-            @channel_thread.value.basic_qos(settings[:prefetch])
-          else
-            @channel_thread.value.prefetch(settings[:prefetch])
-          end
+          @channel_thread.value.prefetch(settings[:prefetch])
           @channel_thread.value
         end
 

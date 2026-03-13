@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Legion::Transport::Messages # rubocop:disable Style/ClassAndModuleChildren
   class Dynamic < Legion::Transport::Message
     attr_accessor :options
@@ -7,7 +9,7 @@ module Legion::Transport::Messages # rubocop:disable Style/ClassAndModuleChildre
     end
 
     def message
-      { args: @options[:args] || @options,
+      { args:     @options[:args] || @options,
         function: function.values[:name] }
     end
 

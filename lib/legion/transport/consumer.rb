@@ -1,7 +1,10 @@
+# frozen_string_literal: true
+
 module Legion
   module Transport
     class Consumer < Legion::Transport::CONNECTOR::Consumer
       include Legion::Transport::Common
+
       attr_reader :consumer_tag
 
       def initialize(queue:, no_ack: false, exclusive: false, consumer_tag: generate_consumer_tag, **opts)

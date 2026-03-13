@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'legion/settings'
 Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default)
@@ -6,7 +8,7 @@ require 'legion/transport/connection'
 
 RSpec.describe Legion::Transport::Connection do
   it '.connector' do
-    expect(Legion::Transport::Connection.connector).to eq ::Bunny
+    expect(Legion::Transport::Connection.connector).to eq Bunny
   end
 
   it '.setup' do
@@ -29,7 +31,7 @@ RSpec.describe Legion::Transport::Connection do
   end
 
   it '.channel_thread' do
-    expect(@conn.channel_thread).to be_a ::Bunny::Channel
+    expect(@conn.channel_thread).to be_a Bunny::Channel
   end
 
   it 'returns true with additional setup command' do
@@ -38,13 +40,13 @@ RSpec.describe Legion::Transport::Connection do
 
   it '.channel' do
     expect(@conn.channel).not_to be_nil
-    expect(@conn.channel).to be_a ::Bunny::Channel
+    expect(@conn.channel).to be_a Bunny::Channel
     expect(@conn.channel).to eq(@conn.channel)
   end
 
   it '.session' do
     expect(@conn.session).not_to be_nil
-    expect(@conn.session).to be_a ::Bunny::Session
+    expect(@conn.session).to be_a Bunny::Session
   end
 
   it '.channel_open?' do

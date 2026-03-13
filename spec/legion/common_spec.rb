@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'legion/settings'
 Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default)
@@ -17,7 +19,7 @@ RSpec.describe Legion::Transport::Common do
              { foo: { hello: 'world', baz: 'other' } }
            )).to eq({ foo: { baz: 'other', hello: 'world' } })
     Legion::Transport::Connection.setup
-    expect(@common.channel).to be_a ::Bunny::Channel
+    expect(@common.channel).to be_a Bunny::Channel
     expect(@common.channel_open?).to eq true
 
     # expect { @common.close }.not_to raise_exception

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'legion/transport/exchanges/task'
 
 module Legion
@@ -11,12 +13,12 @@ module Legion
         def message
           {
             transformation: @options[:transformation] || '{}',
-            conditions: @options[:conditions] || '{}',
-            results: @options[:results] || '{}'
+            conditions:     @options[:conditions] || '{}',
+            results:        @options[:results] || '{}'
           }
         end
 
-        def routing_key # rubocop:disable Metrics/AbcSize
+        def routing_key
           if @options[:conditions].is_a?(String) && @options[:conditions].length > 2
             'task.subtask.conditioner'
           elsif @options[:transformation].is_a?(String) && @options[:transformation].length > 2

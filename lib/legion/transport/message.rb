@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Legion
   module Transport
     class Message
@@ -8,21 +10,21 @@ module Legion
         validate
       end
 
-      def publish(options = @options) # rubocop:disable Metrics/AbcSize
+      def publish(options = @options)
         raise unless @valid
 
         exchange_dest = exchange.respond_to?(:new) ? exchange.new : exchange
         exchange_dest.publish(encode_message,
-                              routing_key: routing_key || '',
-                              content_type: options[:content_type] || content_type,
+                              routing_key:      routing_key || '',
+                              content_type:     options[:content_type] || content_type,
                               content_encoding: options[:content_encoding] || content_encoding,
-                              type: options[:type] || type,
-                              priority: options[:priority] || priority,
-                              expiration: options[:expiration] || expiration,
-                              headers: headers,
-                              persistent: persistent,
-                              message_id: message_id,
-                              timestamp: timestamp)
+                              type:             options[:type] || type,
+                              priority:         options[:priority] || priority,
+                              expiration:       options[:expiration] || expiration,
+                              headers:          headers,
+                              persistent:       persistent,
+                              message_id:       message_id,
+                              timestamp:        timestamp)
       end
 
       def app_id
@@ -148,4 +150,4 @@ module Legion
   end
 end
 
-Dir["#{__dir__}/messages/*.rb"].sort.each { |file| require file }
+Dir["#{__dir__}/messages/*.rb"].each { |file| require file }

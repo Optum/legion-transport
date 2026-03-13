@@ -1,18 +1,14 @@
+# frozen_string_literal: true
+
 require 'legion/transport/version'
 require 'legion/settings'
 require 'legion/transport/settings'
 
 module Legion
   module Transport
-    begin
-      require 'march_hare'
-      TYPE = 'march_hare'.freeze
-      CONNECTOR = ::MarchHare
-    rescue LoadError
-      require 'bunny'
-      TYPE = 'bunny'.freeze
-      CONNECTOR = ::Bunny
-    end
+    require 'bunny'
+    TYPE = 'bunny'
+    CONNECTOR = ::Bunny
 
     class << self
       def logger

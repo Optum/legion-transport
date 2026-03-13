@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'legion/settings'
 Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default)

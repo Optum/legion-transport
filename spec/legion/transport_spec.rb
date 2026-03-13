@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'legion/transport'
 
@@ -8,7 +10,7 @@ RSpec.describe Legion::Transport do
 
   it 'has a connector' do
     expect(Legion::Transport::CONNECTOR).not_to be nil
-    expect(Legion::Transport::CONNECTOR).to be ::Bunny
+    expect(Legion::Transport::CONNECTOR).to be Bunny
   end
 
   it 'has a type' do

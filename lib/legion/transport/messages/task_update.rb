@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'legion/transport/exchanges/task'
 
 module Legion

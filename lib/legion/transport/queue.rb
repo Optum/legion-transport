@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Legion
   module Transport
     class Queue < Legion::Transport::CONNECTOR::Queue
@@ -27,8 +29,8 @@ module Legion
         hash[:block] = false
         hash[:auto_delete] = false
         hash[:arguments] = {
-          'x-max-priority': 255,
-          'x-overflow': 'reject-publish',
+          'x-max-priority':         255,
+          'x-overflow':             'reject-publish',
           'x-dead-letter-exchange': "#{self.class.ancestors.first.to_s.split('::')[2].downcase}.dlx"
         }
         hash
@@ -49,7 +51,7 @@ module Legion
       end
 
       def delete(options = { if_unused: true, if_empty: true })
-        super(options)
+        super
         true
       rescue Legion::Transport::CONNECTOR::PreconditionFailed
         false

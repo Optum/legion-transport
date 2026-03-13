@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Legion
   module Transport
     class Exchange < Legion::Transport::CONNECTOR::Exchange
@@ -6,13 +8,7 @@ module Legion
       def initialize(exchange = exchange_name, options = {})
         @options = options
         @type = options[:type] || default_type
-        if Legion::Transport::TYPE == 'march_hare'
-          super_options = options_builder(default_options, exchange_options, @options)
-          super_options[:type] = @type
-          super(channel, exchange, **super_options)
-        else
-          super(channel, @type, exchange, options_builder(default_options, exchange_options, @options))
-        end
+        super(channel, @type, exchange, options_builder(default_options, exchange_options, @options))
       rescue Legion::Transport::CONNECTOR::PreconditionFailed, Legion::Transport::CONNECTOR::ChannelAlreadyClosed
         raise unless @retries.nil?
 
@@ -48,7 +44,7 @@ module Legion
       end
 
       def delete(options = {})
-        super(options)
+        super
         true
       rescue Legion::Transport::CONNECTOR::PreconditionFailed
         false
