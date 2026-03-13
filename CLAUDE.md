@@ -1,6 +1,7 @@
 # legion-transport: AMQP Transport Layer for LegionIO
 
-**Repository Level 3 Documentation** - See `/Users/miverso2/rubymine/arc/CLAUDE.md` for category overview
+**Repository Level 3 Documentation**
+- **Parent**: `/Users/miverso2/rubymine/legion/CLAUDE.md`
 
 ## Purpose
 
@@ -8,7 +9,6 @@ Ruby gem that manages the connection between LegionIO and its FIFO queue system 
 
 **GitHub**: https://github.com/LegionIO/legion-transport
 **License**: Apache-2.0
-**Version**: 1.2.0
 
 ## Architecture
 
@@ -17,14 +17,14 @@ Legion::Transport
 ├── Connection          # Thread-safe RabbitMQ session/channel management
 │   ├── SSL             # TLS configuration (cert, key, CA, Vault PKI)
 │   └── Vault           # Vault-based credential retrieval (stub)
-├── Exchange            # Base exchange class (extends Bunny/MarchHare::Exchange)
+├── Exchange            # Base exchange class (extends Bunny::Exchange)
 │   └── Exchanges/
 │       ├── Task        # Task routing exchange
 │       ├── Node        # Node communication exchange
 │       ├── Crypt       # Encryption exchange
 │       ├── Extensions  # Extension exchange
 │       └── Lex         # LEX exchange (inherits Extensions)
-├── Queue               # Base queue class (extends Bunny/MarchHare::Queue)
+├── Queue               # Base queue class (extends Bunny::Queue)
 │   └── Queues/
 │       ├── Node        # Node queue
 │       ├── NodeCrypt   # Node encryption queue
@@ -50,12 +50,8 @@ Legion::Transport
 
 ## Key Design Patterns
 
-### Dual AMQP Client Support
-The gem auto-detects the Ruby runtime and loads the appropriate AMQP client:
-- **CRuby**: Uses `bunny` gem
-- **JRuby**: Uses `march_hare` gem
-
-Set at load time via `Legion::Transport::TYPE` and `Legion::Transport::CONNECTOR` constants in `lib/legion/transport.rb`.
+### AMQP Client
+Uses `bunny` gem for AMQP 0.9.1. The entry point sets `Legion::Transport::TYPE = 'bunny'` and `Legion::Transport::CONNECTOR = ::Bunny` as constants.
 
 ### Thread-Safe Connection Management
 - `Concurrent::AtomicReference` wraps the AMQP session (one per process)
@@ -72,13 +68,12 @@ Both Exchange and Queue classes catch `PreconditionFailed` errors (parameter mis
 
 | Gem | Purpose |
 |-----|---------|
-| `bunny` (>= 2.17.0) | CRuby AMQP client |
-| `concurrent-ruby` (>= 1.1.7) | Thread-safe data structures |
+| `bunny` (>= 2.23) | CRuby AMQP client |
+| `concurrent-ruby` (>= 1.2) | Thread-safe data structures |
 | `legion-json` | JSON serialization |
 | `legion-settings` | Configuration management |
 
 Optional runtime dependencies:
-- `march_hare` - JRuby AMQP client (loaded instead of bunny on JRuby)
 - `legion-crypt` - Message encryption support
 - `legion-data` - Database models (used by Dynamic/SubTask messages)
 - `legion-logging` - Structured logging
@@ -142,12 +137,6 @@ bundle exec rspec
 bundle exec rubocop
 ```
 
-## CI/CD
-
-- `.github/workflows/rubocop-analysis.yml` - RuboCop linting
-- `.github/workflows/sourcehawk-scan.yml` - Sourcehawk compliance scan
-
 ---
 
-**Last Updated**: 2026-03-12
 **Maintained By**: Matthew Iverson (@Esity)

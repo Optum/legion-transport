@@ -169,8 +169,8 @@ TLS can be configured through transport settings:
 
 | Gem | Version | Purpose |
 |-----|---------|---------|
-| `bunny` | >= 2.17.0 | AMQP 0.9.1 client for CRuby |
-| `concurrent-ruby` | >= 1.1.7 | Thread-safe data structures |
+| `bunny` | >= 2.23 | AMQP 0.9.1 client |
+| `concurrent-ruby` | >= 1.2 | Thread-safe data structures |
 | `legion-json` | any | JSON serialization |
 | `legion-settings` | any | Configuration management |
 
