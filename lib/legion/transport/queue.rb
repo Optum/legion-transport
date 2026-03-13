@@ -8,7 +8,9 @@ module Legion
       def initialize(queue = queue_name, options = {})
         retries ||= 0
         @options = options
-        super(channel, queue, options_builder(default_options, queue_options, options))
+        merged = options_builder(default_options, queue_options, options)
+        ensure_dlx(merged)
+        super(channel, queue, merged)
       rescue Legion::Transport::CONNECTOR::PreconditionFailed
         retries.zero? ? retries = 1 : raise
         recreate_queue(queue)
@@ -38,6 +40,15 @@ module Legion
 
       def queue_options
         Concurrent::Hash.new
+      end
+
+      def ensure_dlx(merged_options)
+        dlx_name = merged_options.dig(:arguments, :'x-dead-letter-exchange')
+        return if dlx_name.nil? || dlx_name.empty?
+
+        channel.exchange_declare(dlx_name, 'fanout', durable: true, auto_delete: false)
+      rescue StandardError => e
+        Legion::Transport.logger.warn "Failed to declare DLX #{dlx_name}: #{e.message}"
       end
 
       def queue_name

@@ -24,13 +24,13 @@ module Legion
                               headers:          headers,
                               persistent:       persistent,
                               message_id:       message_id,
+                              correlation_id:   correlation_id,
+                              app_id:           app_id,
                               timestamp:        timestamp)
       end
 
       def app_id
-        @options[:app_id] if @options.key? :app_id
-
-        'legion'
+        @options[:app_id] || 'legion'
       end
 
       def message_id
@@ -46,9 +46,10 @@ module Legion
         @options[:reply_to]
       end
 
-      # ID of the message that this message is a reply to
+      # ID of the message that this message is a reply to.
+      # Links subtasks back to the parent task.
       def correlation_id
-        nil
+        @options[:correlation_id] || @options[:parent_id] || @options[:task_id]
       end
 
       def persistent
@@ -65,8 +66,14 @@ module Legion
         end
       end
 
+      ENVELOPE_KEYS = %i[
+        headers content_type content_encoding persistent expiration
+        priority app_id user_id reply_to correlation_id message_id
+        routing_key exchange type
+      ].freeze
+
       def message
-        @options
+        @options.reject { |k, _| ENVELOPE_KEYS.include?(k) }
       end
 
       def routing_key
@@ -94,7 +101,12 @@ module Legion
       end
 
       def encrypt?
-        Legion::Settings[:transport][:messages][:encrypt] && Legion::Settings[:crypt][:cs_encrypt_ready]
+        should_encrypt = if @options.key?(:encrypt)
+                           @options[:encrypt]
+                         else
+                           Legion::Settings[:transport][:messages][:encrypt]
+                         end
+        should_encrypt && Legion::Settings[:crypt][:cs_encrypt_ready]
       end
 
       def exchange_name
@@ -108,10 +120,16 @@ module Legion
 
       def headers
         @options[:headers] ||= Concurrent::Hash.new
-        %i[task_id relationship_id trigger_namespace_id trigger_function_id parent_id master_id runner_namespace runner_class namespace_id function_id function chain_id debug].each do |header| # rubocop:disable Layout/LineLength
+        %i[task_id relationship_id trigger_namespace_id trigger_function_id parent_id master_id runner_namespace runner_class namespace_id function_id function chain_id debug].each do |header|
           next unless @options.key? header
 
-          @options[:headers][header] = @options[header].to_s
+          value = @options[header]
+          @options[:headers][header] = case value
+                                       when Integer, Float, TrueClass, FalseClass
+                                         value
+                                       else
+                                         value.to_s
+                                       end
         end
         @options[:headers]
       rescue StandardError => e
@@ -120,7 +138,7 @@ module Legion
       end
 
       def priority
-        0
+        @options[:priority] || Legion::Transport.settings[:messages][:priority] || 0
       end
 
       def content_type

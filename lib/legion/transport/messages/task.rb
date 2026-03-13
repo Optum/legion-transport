@@ -25,10 +25,6 @@ module Legion
             'task.subtask.transform'
           elsif @options[:queue].is_a?(String) && @options[:function].is_a?(String)
             "#{@options[:queue]}.#{@options[:function]}"
-          elsif @options[:queue].is_a?(String) && @options[:function_name].is_a?(String)
-            "#{@options[:queue]}.#{@options[:function_name]}"
-          elsif @options[:queue].is_a?(String) && @options[:name].is_a?(String)
-            "#{@options[:queue]}.#{@options[:name]}"
           end
         end
 
