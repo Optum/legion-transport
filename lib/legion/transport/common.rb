@@ -55,8 +55,7 @@ module Legion
 
       def close!
         Legion::Transport.logger.error 'close! called'
-        return false unless Legion::Transport::Connection.channel_open?
-
+        false unless Legion::Transport::Connection.channel_open?
         Legion::Transport::Connection.channel.close
       end
 

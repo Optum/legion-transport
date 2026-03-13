@@ -1,7 +1,18 @@
 # frozen_string_literal: true
 
 require 'legion/transport/exchanges/task'
-require_relative '../exceptions'
+
+module Legion
+  module Exception
+    class InvalidTaskStatus < ArgumentError
+      # exception class
+    end
+
+    class InvalidTaskId < ArgumentError
+      # exception class
+    end
+  end
+end
 
 module Legion
   module Transport
