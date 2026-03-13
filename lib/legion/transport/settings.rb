@@ -65,7 +65,7 @@ module Legion
 
       def self.messages
         {
-          encrypt: ENV['transport.messsages.encrypt'] == 'true',
+          encrypt: ENV['transport.messages.encrypt'] == 'true',
           ttl: ENV['transport.messages.ttl'],
           priority: ENV['transport.messages.priority'].to_i || 0,
           persistent: ENV['transport.messages.persistent'] == 'true'

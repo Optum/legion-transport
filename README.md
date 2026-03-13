@@ -1,36 +1,90 @@
-Legion::Transport
-=====
+# Legion::Transport
 
-Legion::Transport is the gem responsible for connecting LegionIO to the FIFO queue system(RabbitMQ over AMQP 0.9.1)
+Legion::Transport is the Ruby gem responsible for connecting LegionIO to its FIFO queue system (RabbitMQ over AMQP 0.9.1). It provides thread-safe connection management, exchange/queue abstractions, message publishing with optional encryption, and consumer wrappers.
 
-Supported Ruby versions and implementations
-------------------------------------------------
+## Features
 
-Legion::Transport should work identically on:
+- Thread-safe connection management using `concurrent-ruby`
+- AMQP 0.9.1 client via `bunny`
+- Topic-based exchange routing with priority queue support
+- Optional message encryption via `legion-crypt`
+- Dynamic credential retrieval from HashiCorp Vault
+- Auto-recovery on connection loss
+- Dead letter exchange support
 
-* JRuby 9.2+
-* Ruby 2.4+
+## Supported Ruby Versions
 
+- Ruby >= 3.4
 
-Installation and Usage
-------------------------
-
-You can verify your installation using this piece of code:
+## Installation
 
 ```bash
 gem install legion-transport
 ```
 
+Or add to your Gemfile:
+
 ```ruby
-require 'legion/transport'
-conn = Legion::Transport::Connection
-conn.setup
-conn.channel # => ::Bunny::Channel
-conn.session # => ::Bunny::Session
+gem 'legion-transport'
 ```
 
-Settings
-----------
+## Usage
+
+### Basic Connection
+
+```ruby
+require 'legion/transport'
+
+Legion::Transport::Connection.setup
+Legion::Transport::Connection.channel  # => Bunny::Channel
+Legion::Transport::Connection.session  # => Bunny::Session
+```
+
+### Publishing a Message
+
+```ruby
+Legion::Transport::Messages::Task.new(
+  function: 'my_function',
+  queue: 'my_extension',
+  routing_key: 'my_extension.my_function',
+  task_id: SecureRandom.uuid
+).publish
+```
+
+### Creating a Queue
+
+```ruby
+queue = Legion::Transport::Queues::Node.new
+queue.subscribe do |delivery_info, properties, payload|
+  # process message
+  queue.acknowledge(delivery_info.delivery_tag)
+end
+```
+
+### Creating an Exchange
+
+```ruby
+exchange = Legion::Transport::Exchanges::Task.new
+exchange.publish(payload, routing_key: 'task.my_runner.my_function')
+```
+
+## Configuration
+
+Configuration is managed through `legion-settings` with environment variable overrides:
+
+| Setting | Env Var | Default |
+|---------|---------|---------|
+| Host | `transport.connection.host` | `127.0.0.1` |
+| Port | `transport.connection.port` | `5672` |
+| User | `transport.connection.user` | `guest` |
+| Password | `transport.connection.password` | `guest` |
+| VHost | `transport.connection.vhost` | `/` |
+| Prefetch | `transport.prefetch` | `2` |
+| Encrypt | `transport.messages.encrypt` | `false` |
+| TTL | `transport.messages.ttl` | `nil` |
+| Persistent | `transport.messages.persistent` | `true` |
+
+### Full Default Settings
 
 ```json
 {
@@ -85,7 +139,55 @@ Settings
   }
 }
 ```
-Authors
-----------
 
-* [Matthew Iverson](https://github.com/Esity) - current maintainer
+### Vault Integration
+
+When connected to HashiCorp Vault, credentials are automatically fetched from `rabbitmq/creds/legion`:
+
+```ruby
+# Vault must be connected via legion-crypt
+# Credentials are fetched automatically during connection setup
+```
+
+### TLS Support
+
+TLS can be configured through transport settings:
+
+```ruby
+# Settings under [:transport][:tls]
+{
+  use_tls: true,
+  tls_cert: '/path/to/cert.pem',
+  tls_key: '/path/to/key.pem',
+  ca_certs: '/path/to/ca.pem',
+  verify_peer: true,
+  use_vault_pki: false
+}
+```
+
+## Dependencies
+
+| Gem | Version | Purpose |
+|-----|---------|---------|
+| `bunny` | >= 2.17.0 | AMQP 0.9.1 client for CRuby |
+| `concurrent-ruby` | >= 1.1.7 | Thread-safe data structures |
+| `legion-json` | any | JSON serialization |
+| `legion-settings` | any | Configuration management |
+
+## Development
+
+```bash
+bundle install
+bundle exec rspec
+bundle exec rubocop
+```
+
+## Authors
+
+- [Matthew Iverson](https://github.com/Esity) - current maintainer
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+Copyright 2021 Esity
