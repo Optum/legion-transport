@@ -73,7 +73,7 @@ module Legion
       ].freeze
 
       def message
-        @options.reject { |k, _| ENVELOPE_KEYS.include?(k) }
+        @options.except(*ENVELOPE_KEYS)
       end
 
       def routing_key
@@ -118,9 +118,15 @@ module Legion
         Kernel.const_get(exchange_name)
       end
 
+      HEADER_KEYS = %i[
+        task_id relationship_id trigger_namespace_id trigger_function_id
+        parent_id master_id runner_namespace runner_class namespace_id
+        function_id function chain_id debug
+      ].freeze
+
       def headers
         @options[:headers] ||= Concurrent::Hash.new
-        %i[task_id relationship_id trigger_namespace_id trigger_function_id parent_id master_id runner_namespace runner_class namespace_id function_id function chain_id debug].each do |header|
+        HEADER_KEYS.each do |header|
           next unless @options.key? header
 
           value = @options[header]

@@ -12,21 +12,20 @@ module Legion
 
     class << self
       def logger
-        @logger unless @logger.nil?
+        return @logger unless @logger.nil?
 
-        if ::Legion.const_defined?('Logging')
-          @logger = ::Legion::Logging
-        else
-          require 'logger'
-          @logger = ::Logger.new($stdout)
-          @logger.level = Logger::ERROR
-        end
-
-        @logger
+        @logger = if ::Legion.const_defined?('Logging')
+                    ::Legion::Logging
+                  else
+                    require 'logger'
+                    l = ::Logger.new($stdout)
+                    l.level = Logger::ERROR
+                    l
+                  end
       end
 
       def settings
-        Legion::Settings[:transport] if Legion.const_defined? 'Settings'
+        return Legion::Settings[:transport] if Legion.const_defined? 'Settings'
 
         Legion::Transport::Settings.default
       end
