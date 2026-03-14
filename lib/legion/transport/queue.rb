@@ -14,13 +14,14 @@ module Legion
       rescue Legion::Transport::CONNECTOR::PreconditionFailed
         retries.zero? ? retries = 1 : raise
         recreate_queue(queue)
+        @channel = Legion::Transport::Connection.channel
         retry
       end
 
       def recreate_queue(queue)
         Legion::Transport.logger.warn "Queue:#{queue} exists with wrong parameters, deleting and creating"
         queue = ::Bunny::Queue.new(Legion::Transport::Connection.channel, queue, no_declare: true, passive: true)
-        queue.delete(if_empty: true)
+        queue.delete
       end
 
       def default_options
@@ -31,8 +32,7 @@ module Legion
         hash[:block] = false
         hash[:auto_delete] = false
         hash[:arguments] = {
-          'x-max-priority':         255,
-          'x-overflow':             'reject-publish',
+          'x-queue-type':           'quorum',
           'x-dead-letter-exchange': "#{self.class.ancestors.first.to_s.split('::')[2].downcase}.dlx"
         }
         hash
@@ -61,7 +61,7 @@ module Legion
         "#{ancestor[2].downcase}.#{name}"
       end
 
-      def delete(options = { if_unused: true, if_empty: true })
+      def delete(options = {})
         super
         true
       rescue Legion::Transport::CONNECTOR::PreconditionFailed

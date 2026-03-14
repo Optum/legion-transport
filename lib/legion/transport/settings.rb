@@ -51,7 +51,7 @@ module Legion
           exclusive:   false,
           block:       false,
           auto_delete: false,
-          arguments:   { 'x-max-priority': 255, 'x-overflow': 'reject-publish' }
+          arguments:   { 'x-queue-type': 'quorum' }
         }
       end
 
@@ -93,6 +93,6 @@ end
 
 begin
   Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default) if Legion.const_defined?('Settings')
-rescue StandardError
-  Legion::Transport.logger.fatal(e.message)
+rescue StandardError => e
+  warn "Legion::Transport settings merge failed: #{e.message}"
 end

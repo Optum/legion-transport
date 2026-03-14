@@ -19,7 +19,8 @@ module Legion
 
       def delete_exchange(exchange)
         Legion::Transport.logger.warn "Exchange:#{exchange} exists with wrong parameters, deleting and creating"
-        channel.exchange_delete(exchange)
+        @channel = Legion::Transport::Connection.channel
+        @channel.exchange_delete(exchange)
       end
 
       def default_options
@@ -56,7 +57,7 @@ module Legion
 
       def channel
         @channel ||= Legion::Transport::Connection.channel
-      rescue ChannelLevelException => e
+      rescue Legion::Transport::CONNECTOR::ChannelLevelException => e
         @channel = Legion::Transport::Connection.channel
         raise e unless @channel.open?
       end

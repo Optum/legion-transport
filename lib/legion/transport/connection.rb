@@ -37,7 +37,7 @@ module Legion
                 Legion::Settings[:transport][:connection],
                 connection_name: connection_name,
                 logger:          Legion::Transport.logger,
-                log_level:       :info
+                log_level:       :warn
               )
             )
             @channel_thread = Concurrent::ThreadLocalVar.new(nil)

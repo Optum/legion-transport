@@ -14,7 +14,7 @@ module Legion
           hash[:durable] = true
           hash[:exclusive] = false
           hash[:block] = false
-          hash[:arguments] = { 'x-max-priority': 255, 'x-dead-letter-exchange': 'task.dlx' }
+          hash[:arguments] = { 'x-dead-letter-exchange': 'task.dlx' }
           hash
         end
       end

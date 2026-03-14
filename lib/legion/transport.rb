@@ -14,14 +14,20 @@ module Legion
       def logger
         return @logger unless @logger.nil?
 
-        if ::Legion.const_defined?('Logging')
-          @logger = ::Legion::Logging
-        else
-          require 'logger'
-          @logger = ::Logger.new($stdout)
-          @logger.level = Logger::ERROR
+        require 'logger'
+        @logger = ::Logger.new($stdout)
+        configured_level = begin
+          Legion::Settings[:transport][:logger_level]
+        rescue StandardError
+          'warn'
         end
-
+        @logger.level = case configured_level.to_s
+                        when 'debug' then ::Logger::DEBUG
+                        when 'info'  then ::Logger::INFO
+                        when 'error' then ::Logger::ERROR
+                        when 'fatal' then ::Logger::FATAL
+                        else              ::Logger::WARN
+                        end
         @logger
       end
 
