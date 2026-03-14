@@ -37,7 +37,6 @@ Legion::Transport
 │       ├── SubTask     # Subtask messages (conditions, transforms)
 │       ├── Dynamic     # Dynamic function-based messages
 │       ├── CheckSubtask
-│       ├── Extension
 │       ├── LexRegister
 │       ├── RequestClusterSecret
 │       ├── TaskLog
