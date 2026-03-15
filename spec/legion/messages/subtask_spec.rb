@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'legion/transport/messages/task'
+require 'legion/transport/messages/subtask'
 
-RSpec.describe Legion::Transport::Messages::Task do
+RSpec.describe Legion::Transport::Messages::SubTask do
   it 'is a class' do
     expect(described_class).to be_a Class
   end
@@ -13,25 +13,15 @@ RSpec.describe Legion::Transport::Messages::Task do
   end
 
   it 'is defined under Legion::Transport::Messages' do
-    expect(described_class.name).to eq 'Legion::Transport::Messages::Task'
+    expect(described_class.name).to eq 'Legion::Transport::Messages::SubTask'
   end
 
-  describe '#message' do
-    it 'returns the full options hash' do
-      instance = described_class.allocate
-      opts = { function: 'do_thing', queue: 'myqueue' }
-      instance.instance_variable_set(:@options, opts)
-      expect(instance.message).to eq opts
-    end
+  it 'returns the Task exchange class' do
+    instance = described_class.allocate
+    expect(instance.exchange).to eq Legion::Transport::Exchanges::Task
   end
 
   describe '#routing_key' do
-    it 'returns the explicit routing_key option when present' do
-      instance = described_class.allocate
-      instance.instance_variable_set(:@options, { routing_key: 'custom.key', function: 'fn' })
-      expect(instance.routing_key).to eq 'custom.key'
-    end
-
     it 'returns conditioner routing key when conditions string is present' do
       instance = described_class.allocate
       instance.instance_variable_set(:@options, { conditions: '{"foo":"bar"}' })
@@ -44,23 +34,43 @@ RSpec.describe Legion::Transport::Messages::Task do
       expect(instance.routing_key).to eq 'task.subtask.transform'
     end
 
-    it 'returns queue.function routing key when both are present' do
+    it 'returns nil when no routing conditions match' do
       instance = described_class.allocate
-      instance.instance_variable_set(:@options, { queue: 'myqueue', function: 'myfunc' })
-      expect(instance.routing_key).to eq 'myqueue.myfunc'
+      instance.instance_variable_set(:@options, { conditions: '{}', transformation: '{}' })
+      expect(instance.routing_key).to be_nil
+    end
+  end
+
+  describe '#message' do
+    it 'returns a hash with transformation, conditions, and results' do
+      instance = described_class.allocate
+      instance.instance_variable_set(:@options, {})
+      msg = instance.message
+      expect(msg).to have_key(:transformation)
+      expect(msg).to have_key(:conditions)
+      expect(msg).to have_key(:results)
+    end
+
+    it 'uses default empty JSON objects when options are not present' do
+      instance = described_class.allocate
+      instance.instance_variable_set(:@options, {})
+      msg = instance.message
+      expect(msg[:transformation]).to eq '{}'
+      expect(msg[:conditions]).to eq '{}'
+      expect(msg[:results]).to eq '{}'
     end
   end
 
   describe '#validate' do
     it 'raises TypeError when function is not a String' do
       instance = described_class.allocate
-      instance.instance_variable_set(:@options, { function: 42 })
+      instance.instance_variable_set(:@options, { function: 123 })
       expect { instance.validate }.to raise_error(TypeError)
     end
 
     it 'sets @valid to true when function is a String' do
       instance = described_class.allocate
-      instance.instance_variable_set(:@options, { function: 'my_task' })
+      instance.instance_variable_set(:@options, { function: 'my_function' })
       instance.validate
       expect(instance.instance_variable_get(:@valid)).to eq true
     end
