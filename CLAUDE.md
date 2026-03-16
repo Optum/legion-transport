@@ -43,8 +43,9 @@ Legion::Transport
 │       └── TaskUpdate
 ├── Consumer            # AMQP consumer with auto-generated tags
 ├── Common              # Shared utilities (channel mgmt, options merging, consumer tags)
+├── Local               # In-memory pub/sub for local development mode (no RabbitMQ)
 ├── Settings            # Default configuration with env var overrides
-└── Version             # 1.2.0
+└── Version             # 1.2.1
 ```
 
 ## Key Design Patterns
@@ -136,7 +137,7 @@ bundle exec rspec
 bundle exec rubocop
 ```
 
-Spec count: 138 examples
+Spec count: 144 examples
 
 ---
 

@@ -2,7 +2,12 @@
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-03-16
+
 ### Added
+- `Legion::Transport::Local` in-memory pub/sub for local development mode (no RabbitMQ required)
+
+### Changed
 - Specs for all previously untested messages/, queues/, and exchanges/ subdirectories
 - Coverage for 18 source files: 7 messages, 5 queues, 4 exchanges (plus task message)
 - Line coverage increased from 65.9% to 81.64%
