@@ -136,6 +136,8 @@ bundle exec rspec
 bundle exec rubocop
 ```
 
+Spec count: 138 examples
+
 ---
 
 **Maintained By**: Matthew Iverson (@Esity)
