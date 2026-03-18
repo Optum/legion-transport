@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-03-17
+
+### Added
+- `Exchanges::Agent` topic exchange for identity-bound agent communication
+- `Queues::Agent` per-agent queue (`agent.<agent_id>`) with auto-delete lifecycle
+- Agent exchange separates identity-scoped traffic from infrastructure node traffic
+
 ## [1.2.1] - 2026-03-16
 
 ### Added
