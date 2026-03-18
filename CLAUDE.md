@@ -20,13 +20,15 @@ Legion::Transport
 ├── Exchange            # Base exchange class (extends Bunny::Exchange)
 │   └── Exchanges/
 │       ├── Task        # Task routing exchange
-│       ├── Node        # Node communication exchange
+│       ├── Node        # Node communication exchange (infrastructure: swarms, services, heartbeats)
+│       ├── Agent       # Agent communication exchange (identity-bound: GAIA frames, preferences, proactive)
 │       ├── Crypt       # Encryption exchange
 │       ├── Extensions  # Extension exchange
 │       └── Lex         # LEX exchange (inherits Extensions)
 ├── Queue               # Base queue class (extends Bunny::Queue)
 │   └── Queues/
 │       ├── Node        # Node queue
+│       ├── Agent       # Per-agent queue (auto-delete, routing key: agent.<agent_id>)
 │       ├── NodeCrypt   # Node encryption queue
 │       ├── NodeStatus  # Node status queue
 │       ├── TaskLog     # Task logging queue
@@ -45,7 +47,7 @@ Legion::Transport
 ├── Common              # Shared utilities (channel mgmt, options merging, consumer tags)
 ├── Local               # In-memory pub/sub for local development mode (no RabbitMQ)
 ├── Settings            # Default configuration with env var overrides
-└── Version             # 1.2.1
+└── Version             # 1.2.2
 ```
 
 ## Key Design Patterns
@@ -106,12 +108,31 @@ Vault integration: If `Legion::Settings[:crypt][:vault][:connected]` is true, cr
 | `lib/legion/transport/connection/vault.rb` | Vault PKI integration (stub) |
 | `lib/legion/transport/common.rb` | Shared module (channel access, deep_merge, consumer tags) |
 | `lib/legion/transport/exchange.rb` | Base Exchange class |
+| `lib/legion/transport/exchanges/agent.rb` | Agent exchange for identity-bound communication |
 | `lib/legion/transport/queue.rb` | Base Queue class |
+| `lib/legion/transport/queues/agent.rb` | Per-agent queue (auto-delete, keyed by agent_id) |
 | `lib/legion/transport/message.rb` | Base Message class with publish/encode/encrypt |
 | `lib/legion/transport/consumer.rb` | AMQP consumer wrapper |
 | `lib/legion/transport/settings.rb` | Default config, env var loading, Vault cred fetch |
 | `lib/legion/transport/version.rb` | Version constant |
 | `spec/` | RSpec test suite |
+
+## Node vs Agent Exchange
+
+Two identity-scoped exchanges separate infrastructure traffic from agent-bound traffic:
+
+| Exchange | Routing Key Pattern | Use Case |
+|----------|-------------------|----------|
+| `node` | `node.<fqdn/nodename>` | Infrastructure: swarm coordination, service heartbeats, non-identity traffic |
+| `agent` | `agent.<agent_id>` | Identity-bound: GAIA cognitive frames, preference queries, proactive messages |
+
+**Agent queue defaults** differ from standard queues:
+- `durable: false` — agent queues are ephemeral (recreated on connect)
+- `auto_delete: true` — cleaned up when the agent disconnects
+- Dead letter exchange: `agent.dlx`
+- Agent ID defaults to `Legion::Settings['client']['name']` if not provided
+
+The `agent` exchange is used by `legion-gaia` for inbound cognitive frames (replacing the former `gaia` exchange routing) and by `lex-mesh` for async preference queries via `reply_to` + `correlation_id` RPC.
 
 ## Queue Defaults
 
@@ -137,7 +158,7 @@ bundle exec rspec
 bundle exec rubocop
 ```
 
-Spec count: 144 examples
+Spec count: 155 examples
 
 ---
 
