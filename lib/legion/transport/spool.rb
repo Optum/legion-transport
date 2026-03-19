@@ -27,10 +27,10 @@ module Legion
             evict_oldest if over_limits?
 
             line = Legion::JSON.dump({
-                                       exchange: exchange,
+                                       exchange:    exchange,
                                        routing_key: routing_key,
-                                       payload: payload,
-                                       spooled_at: Time.now.iso8601
+                                       payload:     payload,
+                                       spooled_at:  Time.now.iso8601
                                      })
 
             file = current_file
@@ -94,7 +94,7 @@ module Legion
         private
 
         def sorted_files
-          Dir.glob(File.join(@directory, '*.jsonl')).sort
+          Dir.glob(File.join(@directory, '*.jsonl'))
         end
 
         def current_file

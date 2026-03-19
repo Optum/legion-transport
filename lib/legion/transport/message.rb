@@ -175,13 +175,13 @@ module Legion
         return unless defined?(Legion::Transport::Spool)
 
         Legion::Transport::Spool.write(
-          exchange: exchange_name_for_spool,
+          exchange:    exchange_name_for_spool,
           routing_key: routing_key || '',
-          payload: message
+          payload:     message
         )
         Legion::Logging.debug { "Message spooled due to: #{error.message}" } if defined?(Legion::Logging)
-      rescue StandardError => spool_error
-        Legion::Logging.warn { "Spool write failed: #{spool_error.message}" } if defined?(Legion::Logging)
+      rescue StandardError => e
+        Legion::Logging.warn { "Spool write failed: #{e.message}" } if defined?(Legion::Logging)
       end
 
       def exchange_name_for_spool
