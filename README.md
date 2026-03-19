@@ -2,6 +2,8 @@
 
 Legion::Transport is the Ruby gem responsible for connecting LegionIO to its FIFO queue system (RabbitMQ over AMQP 0.9.1). It provides thread-safe connection management, exchange/queue abstractions, message publishing with optional encryption, and consumer wrappers.
 
+**Version**: 1.2.2
+
 ## Features
 
 - Thread-safe connection management using `concurrent-ruby`
@@ -182,12 +184,6 @@ bundle exec rspec
 bundle exec rubocop
 ```
 
-## Authors
-
-- [Matthew Iverson](https://github.com/Esity) - current maintainer
-
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
-
-Copyright 2021 Esity
+Apache-2.0
