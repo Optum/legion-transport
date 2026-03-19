@@ -43,4 +43,5 @@ module Legion
   require_relative 'transport/queue'
   require_relative 'transport/exchange'
   require_relative 'transport/message'
+  require_relative 'transport/spool'
 end

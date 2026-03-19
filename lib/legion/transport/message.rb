@@ -27,6 +27,9 @@ module Legion
                               correlation_id:   correlation_id,
                               app_id:           app_id,
                               timestamp:        timestamp)
+      rescue Bunny::ConnectionClosedError, Bunny::ChannelAlreadyClosed, Bunny::ChannelError,
+             Bunny::NetworkErrorWrapper, IOError => e
+        spool_message(e)
       end
 
       def app_id
@@ -164,6 +167,28 @@ module Legion
 
       def channel
         Legion::Transport::Connection.channel
+      end
+
+      private
+
+      def spool_message(error)
+        return unless defined?(Legion::Transport::Spool)
+
+        Legion::Transport::Spool.write(
+          exchange: exchange_name_for_spool,
+          routing_key: routing_key || '',
+          payload: message
+        )
+        Legion::Logging.debug { "Message spooled due to: #{error.message}" } if defined?(Legion::Logging)
+      rescue StandardError => spool_error
+        Legion::Logging.warn { "Spool write failed: #{spool_error.message}" } if defined?(Legion::Logging)
+      end
+
+      def exchange_name_for_spool
+        ex = exchange
+        ex.respond_to?(:name) ? ex.name : ex.to_s
+      rescue StandardError
+        self.class.name
       end
     end
   end
