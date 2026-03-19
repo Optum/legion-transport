@@ -1,6 +1,11 @@
 # Legion::Transport ChangeLog
 
-## [Unreleased]
+## [1.2.3] - 2026-03-19
+
+### Added
+- `Legion::Transport::Spool` JSONL disk buffer for offline message persistence when AMQP is unavailable
+- Automatic spool intercept on `Message#publish` Bunny connection errors with configurable limits
+- Spool drain reads oldest-first with file rotation and stale eviction (72hr TTL, 10MB/file, 500MB total, 100 files max)
 
 ## [1.2.2] - 2026-03-17
 
