@@ -25,6 +25,18 @@ module Legion
         }.merge(grab_vault_creds)
       end
 
+      DEFAULT_AMQP_PORT = 5672
+
+      def self.resolve_hosts(host: nil, hosts: [], server: nil, servers: [], port: nil)
+        port ||= DEFAULT_AMQP_PORT
+
+        all = Array(hosts) + Array(servers) + Array(host) + Array(server)
+        all = ["127.0.0.1:#{port}"] if all.empty?
+
+        all.map! { |s| s.to_s.include?(':') ? s.to_s : "#{s}:#{port}" }
+        all.uniq
+      end
+
       def self.grab_vault_creds
         return {} unless Legion::Settings[:crypt][:vault][:connected]
 

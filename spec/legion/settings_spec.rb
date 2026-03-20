@@ -29,3 +29,59 @@ RSpec.describe Legion::Transport::Settings do
     end
   end
 end
+
+RSpec.describe Legion::Transport::Settings, '.resolve_hosts' do
+  it 'returns default localhost with AMQP port when no args given' do
+    result = described_class.resolve_hosts
+    expect(result).to eq(['127.0.0.1:5672'])
+  end
+
+  it 'accepts singular host string' do
+    result = described_class.resolve_hosts(host: '10.0.0.5')
+    expect(result).to eq(['10.0.0.5:5672'])
+  end
+
+  it 'accepts hosts array' do
+    result = described_class.resolve_hosts(hosts: ['10.0.0.5', '10.0.0.6'])
+    expect(result).to eq(['10.0.0.5:5672', '10.0.0.6:5672'])
+  end
+
+  it 'accepts singular server string' do
+    result = described_class.resolve_hosts(server: '10.0.0.5')
+    expect(result).to eq(['10.0.0.5:5672'])
+  end
+
+  it 'accepts servers array' do
+    result = described_class.resolve_hosts(servers: ['10.0.0.5', '10.0.0.6'])
+    expect(result).to eq(['10.0.0.5:5672', '10.0.0.6:5672'])
+  end
+
+  it 'merges all input sources together' do
+    result = described_class.resolve_hosts(
+      host: '10.0.0.1', hosts: ['10.0.0.2'], server: '10.0.0.3', servers: ['10.0.0.4']
+    )
+    expect(result).to contain_exactly(
+      '10.0.0.1:5672', '10.0.0.2:5672', '10.0.0.3:5672', '10.0.0.4:5672'
+    )
+  end
+
+  it 'preserves explicit ports' do
+    result = described_class.resolve_hosts(host: '10.0.0.5:5671')
+    expect(result).to eq(['10.0.0.5:5671'])
+  end
+
+  it 'injects default port only where missing' do
+    result = described_class.resolve_hosts(hosts: ['10.0.0.5:5671', '10.0.0.6'])
+    expect(result).to eq(['10.0.0.5:5671', '10.0.0.6:5672'])
+  end
+
+  it 'deduplicates entries' do
+    result = described_class.resolve_hosts(host: '10.0.0.5', server: '10.0.0.5')
+    expect(result).to eq(['10.0.0.5:5672'])
+  end
+
+  it 'allows port override' do
+    result = described_class.resolve_hosts(host: '10.0.0.5', port: 5671)
+    expect(result).to eq(['10.0.0.5:5671'])
+  end
+end
