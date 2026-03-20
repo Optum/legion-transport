@@ -2,7 +2,7 @@
 
 Legion::Transport is the Ruby gem responsible for connecting LegionIO to its FIFO queue system (RabbitMQ over AMQP 0.9.1). It provides thread-safe connection management, exchange/queue abstractions, message publishing with optional encryption, and consumer wrappers.
 
-**Version**: 1.2.2
+**Version**: 1.2.3
 
 ## Features
 
@@ -13,6 +13,7 @@ Legion::Transport is the Ruby gem responsible for connecting LegionIO to its FIF
 - Dynamic credential retrieval from HashiCorp Vault
 - Auto-recovery on connection loss
 - Dead letter exchange support
+- Spool buffer for disk-backed message persistence when RabbitMQ is unavailable
 
 ## Supported Ruby Versions
 

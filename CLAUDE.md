@@ -8,7 +8,7 @@
 Ruby gem that manages the connection between LegionIO and its FIFO queue system (RabbitMQ over AMQP 0.9.1). Provides abstractions for exchanges, queues, messages, and consumers with thread-safe connection management.
 
 **GitHub**: https://github.com/LegionIO/legion-transport
-**Version**: 1.2.2
+**Version**: 1.2.3
 **License**: Apache-2.0
 
 ## Architecture
@@ -47,8 +47,9 @@ Legion::Transport
 ├── Consumer            # AMQP consumer with auto-generated tags
 ├── Common              # Shared utilities (channel mgmt, options merging, consumer tags)
 ├── Local               # In-memory pub/sub for local development mode (no RabbitMQ)
+├── Spool               # Disk-backed message buffer: persist messages when RabbitMQ unavailable, replay on reconnect
 ├── Settings            # Default configuration with env var overrides
-└── Version             # 1.2.2
+└── Version             # 1.2.3
 ```
 
 ## Key Design Patterns
@@ -114,6 +115,7 @@ Vault integration: If `Legion::Settings[:crypt][:vault][:connected]` is true, cr
 | `lib/legion/transport/queues/agent.rb` | Per-agent queue (auto-delete, keyed by agent_id) |
 | `lib/legion/transport/message.rb` | Base Message class with publish/encode/encrypt |
 | `lib/legion/transport/consumer.rb` | AMQP consumer wrapper |
+| `lib/legion/transport/spool.rb` | Disk-backed message buffer (~/.legionio/spool, 10MB/file, 500MB total, 3-day TTL) |
 | `lib/legion/transport/settings.rb` | Default config, env var loading, Vault cred fetch |
 | `lib/legion/transport/version.rb` | Version constant |
 | `spec/` | RSpec test suite |
@@ -159,7 +161,7 @@ bundle exec rspec
 bundle exec rubocop
 ```
 
-Spec count: 155 examples
+Spec count: 166 examples
 
 ---
 
