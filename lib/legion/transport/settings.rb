@@ -9,6 +9,11 @@ module Legion
         host = ENV['transport.connection.host'] || '127.0.0.1'
         port = (ENV['transport.connection.port'] || DEFAULT_AMQP_PORT).to_i
 
+        existing = defined?(Legion::Settings) ? (Legion::Settings[:transport][:connection] || {}) : {}
+        extra_server  = existing[:server]
+        extra_servers = existing[:servers] || []
+        extra_hosts   = existing[:hosts] || []
+
         {
           read_timeout:              1,
           heartbeat:                 30,
@@ -25,7 +30,11 @@ module Legion
           recovery_attempts:         100,
           logger_level:              ENV['transport.log_level'] || 'info',
           connected:                 false,
-          resolved_hosts:            resolve_hosts(host: host, port: port)
+          resolved_hosts:            resolve_hosts(
+            host: host, hosts: Array(extra_hosts),
+            server: extra_server, servers: Array(extra_servers),
+            port: port
+          )
         }.merge(grab_vault_creds)
       end
 

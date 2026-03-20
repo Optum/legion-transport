@@ -95,3 +95,19 @@ RSpec.describe Legion::Transport::Settings, '.resolve_hosts' do
     expect(result).to eq(['10.0.0.5:5671'])
   end
 end
+
+RSpec.describe Legion::Transport::Settings, '.connection with server overrides' do
+  it 'resolves server from settings when present' do
+    Legion::Settings[:transport][:connection][:server] = '10.0.0.5'
+    conn = described_class.connection
+    expect(conn[:resolved_hosts]).to include('10.0.0.5:5672')
+    Legion::Settings[:transport][:connection].delete(:server)
+  end
+
+  it 'resolves servers array from settings when present' do
+    Legion::Settings[:transport][:connection][:servers] = ['10.0.0.5', '10.0.0.6']
+    conn = described_class.connection
+    expect(conn[:resolved_hosts]).to include('10.0.0.5:5672', '10.0.0.6:5672')
+    Legion::Settings[:transport][:connection].delete(:servers)
+  end
+end
