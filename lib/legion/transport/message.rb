@@ -123,6 +123,7 @@ module Legion
 
       def headers
         @options[:headers] ||= Concurrent::Hash.new
+        @options[:headers]['legion_protocol_version'] ||= '2.0'
         %i[task_id relationship_id trigger_namespace_id trigger_function_id parent_id master_id runner_namespace runner_class namespace_id function_id function
            chain_id debug].each do |header|
           next unless @options.key? header
