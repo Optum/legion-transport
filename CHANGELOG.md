@@ -1,5 +1,17 @@
 # Legion::Transport ChangeLog
 
+## [1.2.5] - 2026-03-20
+
+### Added
+- `Settings.resolve_hosts` — merges `host:`, `hosts:`, `server:`, `servers:` into a unified deduped list with default AMQP port (5672) injected where missing
+- `Settings::DEFAULT_AMQP_PORT` constant (5672)
+- Multi-host RabbitMQ cluster failover via Bunny's native `hosts:` parameter when 2+ hosts configured
+- Support for `server:` and `servers:` keys in transport settings (consistency with legion-cache)
+
+### Fixed
+- Port default changed from string `"5672"` to integer `5672` — fixes SSL auto-detect comparison in `Connection::SSL.use_tls?` which compared against integer `5671`
+- SSL port auto-detect now uses `.to_i` for robustness
+
 ## [1.2.4] - 2026-03-20
 
 ### Fixed

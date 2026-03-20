@@ -2,7 +2,7 @@
 
 Legion::Transport is the Ruby gem responsible for connecting LegionIO to its FIFO queue system (RabbitMQ over AMQP 0.9.1). It provides thread-safe connection management, exchange/queue abstractions, message publishing with optional encryption, and consumer wrappers.
 
-**Version**: 1.2.3
+**Version**: 1.2.5
 
 ## Features
 
@@ -70,6 +70,25 @@ end
 exchange = Legion::Transport::Exchanges::Task.new
 exchange.publish(payload, routing_key: 'task.my_runner.my_function')
 ```
+
+## Connection Configuration
+
+```json
+{
+  "transport": {
+    "connection": {
+      "host": "rabbitmq1.example.com",
+      "servers": ["rabbitmq2.example.com", "rabbitmq3.example.com:5673"],
+      "port": 5672,
+      "user": "legion",
+      "password": "secret",
+      "vhost": "/"
+    }
+  }
+}
+```
+
+Supported server keys: `host:` (string), `hosts:` (array), `server:` (string), `servers:` (array). All are merged and deduped. Port 5672 is injected where omitted. Multiple hosts enable Bunny's cluster failover.
 
 ## Configuration
 
