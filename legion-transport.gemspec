@@ -30,4 +30,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'concurrent-ruby', '>= 1.2'
   spec.add_dependency 'legion-json'
   spec.add_dependency 'legion-settings'
+  spec.add_dependency 'logger'
 end

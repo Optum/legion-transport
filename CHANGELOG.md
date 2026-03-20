@@ -1,5 +1,11 @@
 # Legion::Transport ChangeLog
 
+## [1.2.4] - 2026-03-20
+
+### Fixed
+- Add `logger` gem as runtime dependency for Ruby 4.0 compatibility (extracted from stdlib)
+- Disable DNS bootstrap in test environment to prevent `NameError` from legion-settings 1.3.5
+
 ## [1.2.3] - 2026-03-19
 
 ### Added
