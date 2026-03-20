@@ -33,12 +33,25 @@ module Legion
             nil
           else
             @session ||= Concurrent::AtomicReference.new(
-              connector.new(
-                Legion::Settings[:transport][:connection],
-                connection_name: connection_name,
-                logger:          Legion::Transport.logger,
-                log_level:       :warn
-              )
+              begin
+                conn_settings = Legion::Settings[:transport][:connection].dup
+                resolved = conn_settings.delete(:resolved_hosts) || []
+
+                bunny_opts = conn_settings.merge(
+                  connection_name: connection_name,
+                  logger:          Legion::Transport.logger,
+                  log_level:       :warn
+                )
+
+                if resolved.length > 1
+                  hosts = resolved.map { |h| { host: h.split(':').first, port: h.split(':').last.to_i } }
+                  bunny_opts.delete(:host)
+                  bunny_opts.delete(:port)
+                  bunny_opts[:hosts] = hosts
+                end
+
+                connector.new(bunny_opts)
+              end
             )
             @channel_thread = Concurrent::ThreadLocalVar.new(nil)
             session.start

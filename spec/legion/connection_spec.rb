@@ -72,6 +72,12 @@ RSpec.describe Legion::Transport::Connection do
     expect(@conn.session_open?).to eq true
   end
 
+  it 'includes resolved_hosts in settings' do
+    conn_settings = Legion::Settings[:transport][:connection]
+    expect(conn_settings[:resolved_hosts]).to be_a(Array)
+    expect(conn_settings[:resolved_hosts]).not_to be_empty
+  end
+
   it 'can initialize a new duplicate object' do
     Legion::Transport::Connection.setup
     expect { @new_session = Legion::Transport::Connection.new }.not_to raise_exception
