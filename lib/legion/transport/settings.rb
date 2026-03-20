@@ -6,6 +6,9 @@ module Legion
   module Transport
     module Settings
       def self.connection
+        host = ENV['transport.connection.host'] || '127.0.0.1'
+        port = (ENV['transport.connection.port'] || DEFAULT_AMQP_PORT).to_i
+
         {
           read_timeout:              1,
           heartbeat:                 30,
@@ -16,12 +19,13 @@ module Legion
           frame_max:                 65_536,
           user:                      ENV['transport.connection.user'] || 'guest',
           password:                  ENV['transport.connection.password'] || 'guest',
-          host:                      ENV['transport.connection.host'] || '127.0.0.1',
-          port:                      (ENV['transport.connection.port'] || 5672).to_i,
+          host:                      host,
+          port:                      port,
           vhost:                     ENV['transport.connection.vhost'] || '/',
           recovery_attempts:         100,
           logger_level:              ENV['transport.log_level'] || 'info',
-          connected:                 false
+          connected:                 false,
+          resolved_hosts:            resolve_hosts(host: host, port: port)
         }.merge(grab_vault_creds)
       end
 

@@ -18,6 +18,16 @@ RSpec.describe Legion::Transport::Settings do
       expect(connection[:port]).to be_a(Integer)
       expect(connection[:port]).to eq(5672)
     end
+
+    it 'resolves host to a string' do
+      expect(connection[:host]).to be_a(String)
+      expect(connection[:host]).to eq('127.0.0.1')
+    end
+
+    it 'includes resolved_hosts array' do
+      expect(connection[:resolved_hosts]).to be_a(Array)
+      expect(connection[:resolved_hosts]).to eq(['127.0.0.1:5672'])
+    end
   end
 
   describe '.default' do
