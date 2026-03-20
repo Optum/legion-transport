@@ -13,7 +13,7 @@ module Legion
         end
 
         def use_tls?
-          settings[:use_tls] || Legion::Settings[:transport][:port] == 5671
+          settings[:use_tls] || Legion::Settings[:transport][:connection][:port].to_i == 5671
         end
 
         def tls_cert

@@ -17,7 +17,7 @@ module Legion
           user:                      ENV['transport.connection.user'] || 'guest',
           password:                  ENV['transport.connection.password'] || 'guest',
           host:                      ENV['transport.connection.host'] || '127.0.0.1',
-          port:                      ENV['transport.connection.port'] || '5672',
+          port:                      (ENV['transport.connection.port'] || 5672).to_i,
           vhost:                     ENV['transport.connection.vhost'] || '/',
           recovery_attempts:         100,
           logger_level:              ENV['transport.log_level'] || 'info',
