@@ -1,5 +1,10 @@
 # Legion::Transport ChangeLog
 
+## [1.2.7] - 2026-03-20
+
+### Added
+- `legion_protocol_version: '2.0'` header on all published AMQP messages
+
 ## [1.2.6] - 2026-03-20
 
 ### Changed

@@ -5,11 +5,11 @@ require 'spec_helper'
 RSpec.describe 'Protocol version header' do
   let(:message_class) do
     Class.new(Legion::Transport::Message) do
-      def exchange; nil; end
+      def exchange = nil
 
-      def routing_key; 'test.key'; end
+      def routing_key = 'test.key'
 
-      def valid?; true; end
+      def valid? = true
     end
   end
 
