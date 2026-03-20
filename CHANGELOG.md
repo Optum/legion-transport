@@ -1,5 +1,10 @@
 # Legion::Transport ChangeLog
 
+## [1.2.6] - 2026-03-20
+
+### Changed
+- Version bump to trigger CI rebuild
+
 ## [1.2.5] - 2026-03-20
 
 ### Added
