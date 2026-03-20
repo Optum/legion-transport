@@ -17,6 +17,7 @@ end
 require 'bundler/setup'
 
 require 'legion/settings'
+ENV['LEGION_DNS_BOOTSTRAP'] = 'false'
 Legion::Settings.load
 require 'legion/transport'
 
