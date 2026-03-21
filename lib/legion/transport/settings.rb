@@ -99,17 +99,28 @@ module Legion
         }
       end
 
+      def self.tenant_topology
+        {
+          enabled:          false,
+          prefix_format:    't.%<tenant_id>s.',
+          shared_exchanges: %w[legion.control legion.health legion.audit],
+          auto_provision:   true,
+          quotas:           {}
+        }
+      end
+
       def self.default
         {
-          type:         'rabbitmq',
-          connected:    false,
-          logger_level: ENV['transport.logger_level'] || 'info',
-          messages:     messages,
-          prefetch:     ENV['transport.prefetch'].to_i,
-          exchanges:    exchanges,
-          queues:       queues,
-          connection:   connection,
-          channel:      channel
+          type:            'rabbitmq',
+          connected:       false,
+          logger_level:    ENV['transport.logger_level'] || 'info',
+          messages:        messages,
+          prefetch:        ENV['transport.prefetch'].to_i,
+          exchanges:       exchanges,
+          queues:          queues,
+          connection:      connection,
+          channel:         channel,
+          tenant_topology: tenant_topology
         }
       end
     end

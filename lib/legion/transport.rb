@@ -44,4 +44,7 @@ module Legion
   require_relative 'transport/exchange'
   require_relative 'transport/message'
   require_relative 'transport/spool'
+  require_relative 'transport/tenant_topology'
+  require_relative 'transport/tenant_provisioner'
+  require_relative 'transport/tenant_quota'
 end

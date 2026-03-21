@@ -1,5 +1,14 @@
 # Legion::Transport ChangeLog
 
+## [1.2.8] - 2026-03-21
+
+### Added
+- `TenantTopology` module: exchange/queue name prefixing with tenant context (`t.<tenant_id>.<name>`); disabled by default; shared exchanges (`legion.control`, `legion.health`, `legion.audit`) are never prefixed; delegates to `Legion::TenantContext.current_tenant_id` when no explicit tenant_id given
+- `TenantProvisioner` module: provisions and deprovisions RabbitMQ topology (topic exchanges for tasks/results/events + fanout DLX) for a given tenant; accepts optional channel kwarg for reuse
+- `TenantQuota` module: application-level sliding-window rate limiting per tenant; enforces `messages_per_second` and `bytes_per_second` limits from settings; raises `TenantQuota::QuotaExceededError` on violation
+- `Settings.tenant_topology` defaults block: `enabled: false`, `prefix_format`, `shared_exchanges`, `auto_provision: true`, `quotas: {}`
+- 61 new specs covering all three modules (227 total, 0 failures)
+
 ## [1.2.7] - 2026-03-20
 
 ### Added
