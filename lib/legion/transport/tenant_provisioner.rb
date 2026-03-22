@@ -28,7 +28,8 @@ module Legion
           name = TenantTopology.exchange_name(type, tenant_id: tenant_id)
           begin
             ch.exchange_delete(name)
-          rescue StandardError
+          rescue StandardError => e
+            Legion::Logging.debug("TenantProvisioner#deprovision exchange delete failed for #{name}: #{e.message}") if defined?(Legion::Logging)
             nil
           end
         end

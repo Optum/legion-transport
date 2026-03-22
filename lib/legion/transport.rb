@@ -19,7 +19,8 @@ module Legion
         @logger = ::Logger.new($stdout)
         configured_level = begin
           Legion::Settings[:transport][:logger_level]
-        rescue StandardError
+        rescue StandardError => e
+          warn "Transport#logger level lookup failed: #{e.message}"
           'warn'
         end
         @logger.level = case configured_level.to_s

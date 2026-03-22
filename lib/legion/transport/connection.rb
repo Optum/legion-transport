@@ -77,13 +77,15 @@ module Legion
 
         def channel_open?
           channel.open?
-        rescue StandardError
+        rescue StandardError => e
+          Legion::Logging.debug("Connection#channel_open? failed: #{e.message}") if defined?(Legion::Logging)
           false
         end
 
         def session_open?
           session.open?
-        rescue StandardError
+        rescue StandardError => e
+          Legion::Logging.debug("Connection#session_open? failed: #{e.message}") if defined?(Legion::Logging)
           false
         end
 
@@ -140,7 +142,8 @@ module Legion
           return unless defined?(Legion::Transport::Helpers::Policy)
 
           Legion::Transport::Helpers::Policy.apply_quorum_policy!
-        rescue StandardError
+        rescue StandardError => e
+          Legion::Logging.warn("Connection#apply_quorum_policy_if_enabled failed: #{e.message}") if defined?(Legion::Logging)
           nil
         end
 

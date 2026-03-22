@@ -46,7 +46,8 @@ module Legion
           return {} unless defined?(Legion::Settings)
 
           Legion::Settings[:transport][:tls] || {}
-        rescue StandardError
+        rescue StandardError => e
+          Legion::Logging.debug("SSL#tls_settings failed: #{e.message}") if defined?(Legion::Logging)
           {}
         end
 
@@ -54,7 +55,8 @@ module Legion
           return nil unless defined?(Legion::Settings)
 
           Legion::Settings[:transport][:connection][:port]
-        rescue StandardError
+        rescue StandardError => e
+          Legion::Logging.debug("SSL#transport_port failed: #{e.message}") if defined?(Legion::Logging)
           nil
         end
       end

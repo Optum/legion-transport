@@ -1,5 +1,23 @@
 # Legion::Transport ChangeLog
 
+## [1.3.6] - 2026-03-22
+
+### Changed
+- Added `Legion::Logging` calls (guarded with `defined?`) to all previously silent rescue blocks
+- `connection/ssl.rb`: debug log on `tls_settings` and `transport_port` failures
+- `connection.rb`: debug log on `channel_open?` and `session_open?` failures; warn log on `apply_quorum_policy_if_enabled` failure
+- `exchange.rb`: warn log on `delete` precondition failure
+- `helpers/channel_pool.rb`: debug log on channel close failure in `close_all`
+- `helpers/pool.rb`: debug log on connection close failure in `shutdown`
+- `message.rb`: debug log on region header lookup failure; warn log on `exchange_name_for_spool` failure
+- `queue.rb`: warn log on `delete` precondition failure
+- `settings.rb`: use `Legion::Logging.warn` (with stdlib `warn` fallback) for settings merge failure
+- `spool.rb`: debug logs on file read/delete/size failures in `count`, `evict_stale`, `over_limits?`, `evict_oldest`
+- `tenant_provisioner.rb`: debug log on exchange delete failure in `deprovision`
+- `tenant_quota.rb`: debug log on quota settings lookup failure
+- `tenant_topology.rb`: debug logs on `current_tenant_id` and `transport_settings` failures
+- `transport.rb`: stdlib `warn` on logger level lookup failure (Logging not yet available at that point)
+
 ## [1.3.5] - 2026-03-22
 
 ### Changed

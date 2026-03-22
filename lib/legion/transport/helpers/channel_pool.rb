@@ -53,7 +53,9 @@ module Legion
           @mutex.synchronize do
             total = @available.size + @in_use.size
             (@available + @in_use).each do |ch|
-              ch.close rescue nil # rubocop:disable Style/RescueModifier
+              ch.close
+            rescue StandardError => e
+              Legion::Logging.debug("ChannelPool#close_all channel close failed: #{e.message}") if defined?(Legion::Logging)
             end
             @available.clear
             @in_use.clear

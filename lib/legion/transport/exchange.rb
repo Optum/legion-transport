@@ -47,7 +47,8 @@ module Legion
       def delete(options = {})
         super
         true
-      rescue Legion::Transport::CONNECTOR::PreconditionFailed
+      rescue Legion::Transport::CONNECTOR::PreconditionFailed => e
+        Legion::Logging.warn("Exchange#delete precondition failed: #{e.message}") if defined?(Legion::Logging)
         false
       end
 

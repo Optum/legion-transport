@@ -62,7 +62,9 @@ module Legion
         def shutdown
           @mutex.synchronize do
             (@available + @in_use).each do |conn|
-              conn.close rescue nil # rubocop:disable Style/RescueModifier
+              conn.close
+            rescue StandardError => e
+              Legion::Logging.debug("Pool#shutdown connection close failed: #{e.message}") if defined?(Legion::Logging)
             end
             @available.clear
             @in_use.clear

@@ -63,7 +63,8 @@ module Legion
 
           sorted_files.sum do |file|
             File.readlines(file).count { |l| !l.strip.empty? }
-          rescue StandardError
+          rescue StandardError => e
+            Legion::Logging.debug("Spool#count file read failed: #{e.message}") if defined?(Legion::Logging)
             0
           end
         end
@@ -74,7 +75,8 @@ module Legion
           cutoff = Time.now - @max_age_seconds
           sorted_files.each do |file|
             File.delete(file) if File.mtime(file) < cutoff
-          rescue StandardError
+          rescue StandardError => e
+            Legion::Logging.debug("Spool#evict_stale file delete failed: #{e.message}") if defined?(Legion::Logging)
             nil
           end
         end
@@ -119,7 +121,8 @@ module Legion
 
           total = files.sum do |f|
             File.size(f)
-          rescue StandardError
+          rescue StandardError => e
+            Legion::Logging.debug("Spool#over_limits? file size check failed: #{e.message}") if defined?(Legion::Logging)
             0
           end
           total >= @max_total_bytes
@@ -130,7 +133,8 @@ module Legion
           while files.size >= @max_files
             begin
               File.delete(files.shift)
-            rescue StandardError
+            rescue StandardError => e
+              Legion::Logging.debug("Spool#evict_oldest file delete failed: #{e.message}") if defined?(Legion::Logging)
               break
             end
           end

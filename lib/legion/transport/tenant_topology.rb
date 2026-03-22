@@ -36,7 +36,8 @@ module Legion
         return nil unless defined?(Legion::TenantContext)
 
         Legion::TenantContext.current_tenant_id
-      rescue StandardError
+      rescue StandardError => e
+        Legion::Logging.debug("TenantTopology#current_tenant_id failed: #{e.message}") if defined?(Legion::Logging)
         nil
       end
 
@@ -44,7 +45,8 @@ module Legion
         return {} unless defined?(Legion::Settings)
 
         Legion::Settings[:transport] || {}
-      rescue StandardError
+      rescue StandardError => e
+        Legion::Logging.debug("TenantTopology#transport_settings failed: #{e.message}") if defined?(Legion::Logging)
         {}
       end
     end

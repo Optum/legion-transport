@@ -140,5 +140,9 @@ end
 begin
   Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default) if Legion.const_defined?('Settings')
 rescue StandardError => e
-  warn "Legion::Transport settings merge failed: #{e.message}"
+  if defined?(Legion::Logging)
+    Legion::Logging.warn("Legion::Transport settings merge failed: #{e.message}")
+  else
+    warn "Legion::Transport settings merge failed: #{e.message}"
+  end
 end

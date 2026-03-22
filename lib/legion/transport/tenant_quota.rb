@@ -73,7 +73,8 @@ module Legion
           return nil unless defined?(Legion::Settings)
 
           Legion::Settings.dig(:transport, :tenant_topology, :quotas, tenant_id.to_sym)
-        rescue StandardError
+        rescue StandardError => e
+          Legion::Logging.debug("TenantQuota#quota_settings failed for #{tenant_id}: #{e.message}") if defined?(Legion::Logging)
           nil
         end
       end

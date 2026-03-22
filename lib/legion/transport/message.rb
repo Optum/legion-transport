@@ -178,7 +178,12 @@ module Legion
       private
 
       def inject_region_header
-        region = Legion::Settings[:transport][:region] rescue nil # rubocop:disable Style/RescueModifier
+        region = begin
+          Legion::Settings[:transport][:region]
+        rescue StandardError => e
+          Legion::Logging.debug("Message#inject_region_header region lookup failed: #{e.message}") if defined?(Legion::Logging)
+          nil
+        end
         return if region.nil?
 
         @options[:headers]['x-legion-region'] = region
@@ -213,7 +218,8 @@ module Legion
       def exchange_name_for_spool
         ex = exchange
         ex.respond_to?(:name) ? ex.name : ex.to_s
-      rescue StandardError
+      rescue StandardError => e
+        Legion::Logging.warn("Message#exchange_name_for_spool failed: #{e.message}") if defined?(Legion::Logging)
         self.class.name
       end
     end
