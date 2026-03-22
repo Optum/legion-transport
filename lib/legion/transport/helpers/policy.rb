@@ -1,0 +1,55 @@
+# frozen_string_literal: true
+
+require 'net/http'
+require 'json'
+
+module Legion
+  module Transport
+    module Helpers
+      module Policy
+        module_function
+
+        def apply_quorum_policy!(settings: nil)
+          settings ||= Legion::Settings[:transport]
+          policy = settings[:quorum_queue_policy]
+          return false unless policy && policy[:enabled]
+
+          conn = settings[:connection]
+          host = conn[:host] || '127.0.0.1'
+          port = settings[:management_port] || 15_672
+          user = conn[:user] || 'guest'
+          pass = conn[:password] || 'guest'
+          vhost = conn[:vhost] || '/'
+
+          encoded_vhost = URI.encode_www_form_component(vhost)
+          uri = URI("http://#{host}:#{port}/api/policies/#{encoded_vhost}/legion-quorum")
+
+          body = {
+            pattern:    policy[:pattern] || '^legion\\.',
+            definition: {
+              'x-queue-type':     'quorum',
+              'x-delivery-limit': policy[:delivery_limit] || 5
+            },
+            'apply-to': 'queues',
+            priority:   0
+          }
+
+          req = Net::HTTP::Put.new(uri)
+          req.basic_auth(user, pass)
+          req.content_type = 'application/json'
+          req.body = ::JSON.dump(body)
+
+          http = Net::HTTP.new(uri.host, uri.port)
+          http.open_timeout = 5
+          http.read_timeout = 5
+          response = http.request(req)
+
+          response.code.start_with?('2')
+        rescue StandardError => e
+          Legion::Transport.logger.warn("Quorum policy apply failed: #{e.message}") if defined?(Legion::Transport)
+          false
+        end
+      end
+    end
+  end
+end

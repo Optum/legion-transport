@@ -16,11 +16,11 @@ module Legion
 
         {
           read_timeout:              1,
-          heartbeat:                 30,
+          heartbeat:                 (ENV['transport.connection.heartbeat'] || 30).to_i,
           automatically_recover:     true,
           continuation_timeout:      4000,
-          network_recovery_interval: 1,
-          connection_timeout:        1,
+          network_recovery_interval: (ENV['transport.connection.recovery_interval'] || 2).to_i,
+          connection_timeout:        (ENV['transport.connection.connection_timeout'] || 10).to_i,
           frame_max:                 65_536,
           user:                      ENV['transport.connection.user'] || 'guest',
           password:                  ENV['transport.connection.password'] || 'guest',
@@ -110,17 +110,27 @@ module Legion
       end
 
       def self.default
+        cluster_csv = ENV.fetch('transport.cluster_nodes', '')
         {
-          type:            'rabbitmq',
-          connected:       false,
-          logger_level:    ENV['transport.logger_level'] || 'info',
-          messages:        messages,
-          prefetch:        ENV['transport.prefetch'].to_i,
-          exchanges:       exchanges,
-          queues:          queues,
-          connection:      connection,
-          channel:         channel,
-          tenant_topology: tenant_topology
+          type:                 'rabbitmq',
+          connected:            false,
+          logger_level:         ENV['transport.logger_level'] || 'info',
+          messages:             messages,
+          prefetch:             ENV['transport.prefetch'].to_i,
+          exchanges:            exchanges,
+          queues:               queues,
+          connection:           connection,
+          channel:              channel,
+          tenant_topology:      tenant_topology,
+          cluster_nodes:        cluster_csv.empty? ? [] : cluster_csv.split(',').map(&:strip),
+          connection_pool_size: (ENV['transport.connection_pool_size'] || 1).to_i,
+          region:               ENV.fetch('transport.region', nil),
+          management_port:      (ENV['transport.management_port'] || 15_672).to_i,
+          quorum_queue_policy:  {
+            enabled:        ENV['transport.quorum_queue_policy.enabled'] == 'true',
+            pattern:        ENV['transport.quorum_queue_policy.pattern'] || '^legion\\.',
+            delivery_limit: (ENV['transport.quorum_queue_policy.delivery_limit'] || 5).to_i
+          }
         }
       end
     end

@@ -1,5 +1,21 @@
 # Legion::Transport ChangeLog
 
+## [1.3.0] - 2026-03-21
+
+### Added
+- RabbitMQ cluster support: `cluster_nodes`, `connection_pool_size`, `region`, `management_port`, `quorum_queue_policy` settings
+- Cluster node rotation: `cluster_nodes` merged into `resolved_hosts` with shuffle for load distribution
+- Connection pool (`Helpers::Pool`): mutex-protected pool of Bunny sessions with configurable size and timeout
+- Channel pool (`Helpers::ChannelPool`): per-connection ring buffer of channels with borrow/return
+- Region header injection: `x-legion-region` and `x-legion-region-affinity` headers on published messages when region is configured
+- Quorum queue policy helper (`Helpers::Policy`): idempotent HTTP PUT to RabbitMQ Management API, opt-in via `quorum_queue_policy.enabled`
+- Connection failover: retry loop across all cluster nodes on TCPConnectionFailed/AuthFailure/ECONNREFUSED
+- `Legion::Transport::PoolTimeout` and `Legion::Transport::ClusterUnavailable` error classes
+
+### Changed
+- `connection_timeout` default 1 -> 10, `network_recovery_interval` default 1 -> 2
+- `build_bunny_opts` now merges `cluster_nodes` into resolved hosts before building Bunny options
+
 ## [1.2.9] - 2026-03-21
 
 ### Changed

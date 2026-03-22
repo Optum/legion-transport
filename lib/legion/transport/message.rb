@@ -124,6 +124,7 @@ module Legion
       def headers
         @options[:headers] ||= Concurrent::Hash.new
         @options[:headers]['legion_protocol_version'] ||= '2.0'
+        inject_region_header
         %i[task_id relationship_id trigger_namespace_id trigger_function_id parent_id master_id runner_namespace runner_class namespace_id function_id function
            chain_id debug].each do |header|
           next unless @options.key? header
@@ -171,6 +172,15 @@ module Legion
       end
 
       private
+
+      def inject_region_header
+        region = Legion::Settings[:transport][:region] rescue nil # rubocop:disable Style/RescueModifier
+        return if region.nil?
+
+        @options[:headers]['x-legion-region'] = region
+        affinity = @options[:region_affinity] || 'prefer_local'
+        @options[:headers]['x-legion-region-affinity'] = affinity
+      end
 
       def spool_message(error)
         return unless defined?(Legion::Transport::Spool)

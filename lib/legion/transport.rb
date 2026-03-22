@@ -3,6 +3,7 @@
 require 'legion/transport/version'
 require 'legion/settings'
 require 'legion/transport/settings'
+require_relative 'transport/errors'
 
 module Legion
   module Transport
@@ -39,6 +40,9 @@ module Legion
     end
   end
 
+  require_relative 'transport/helpers/pool'
+  require_relative 'transport/helpers/channel_pool'
+  require_relative 'transport/helpers/policy'
   require_relative 'transport/common'
   require_relative 'transport/queue'
   require_relative 'transport/exchange'
