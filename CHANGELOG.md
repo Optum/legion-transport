@@ -1,5 +1,13 @@
 # Legion::Transport ChangeLog
 
+## [1.2.9] - 2026-03-21
+
+### Changed
+- `Connection::SSL` module refactored to use `Legion::Crypt::TLS.resolve` for TLS configuration
+- Removed legacy `use_tls?`, `tls_cert`, `tls_key`, `ca_certs`, `verify_peer?` methods
+- TLS options now merged into Bunny connection opts via `tls_options` method
+- SSL module auto-required and included in `Connection` class
+
 ## [1.2.8] - 2026-03-21
 
 ### Added

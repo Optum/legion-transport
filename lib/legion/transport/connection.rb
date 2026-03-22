@@ -1,11 +1,14 @@
 # frozen_string_literal: true
 
 require 'concurrent-ruby'
+require_relative 'connection/ssl'
 
 module Legion
   module Transport
     module Connection
       class << self
+        include Legion::Transport::Connection::SSL
+
         def settings
           Legion::Settings[:transport]
         end
@@ -111,6 +114,7 @@ module Legion
             opts.delete(:port)
           end
 
+          opts.merge!(tls_options)
           opts
         end
       end
