@@ -43,9 +43,13 @@ module Legion
             session.create_channel(nil, settings[:channel][:session_worker_pool_size])
                    .basic_qos(settings[:prefetch], true)
             Legion::Settings[:transport][:connected] = true
-            host = settings.dig(:connection, :host) || '127.0.0.1'
-            port = settings.dig(:connection, :port) || 5672
-            Legion::Logging.info "Connected to amqp://#{host}:#{port}" if defined?(Legion::Logging)
+            if defined?(Legion::Logging)
+              host  = settings.dig(:connection, :host) || '127.0.0.1'
+              port  = settings.dig(:connection, :port) || 5672
+              user  = settings.dig(:connection, :user) || 'guest'
+              vhost = settings.dig(:connection, :vhost) || '/'
+              Legion::Logging.info "Connected to amqp://#{user}@#{host}:#{port}/#{vhost}"
+            end
           end
 
           register_session_callbacks

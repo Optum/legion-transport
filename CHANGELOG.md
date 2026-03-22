@@ -1,5 +1,10 @@
 # Legion::Transport ChangeLog
 
+## [1.3.5] - 2026-03-22
+
+### Changed
+- Boot connection log now includes username and vhost: `amqp://user@host:port/vhost`
+
 ## [1.3.4] - 2026-03-22
 
 ### Added
