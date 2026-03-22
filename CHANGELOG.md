@@ -1,9 +1,11 @@
 # Legion::Transport ChangeLog
 
-## [Unreleased]
+## [1.3.2] - 2026-03-21
 
 ### Added
 - `Legion::Transport::Exchanges::Logging`: topic exchange (`legion.logging`) for structured log event publishing
+- `Legion::Transport::Queues::RegionOutbound`: durable outbound queues for cross-region message routing (per-peer, skips current region)
+- `Legion::Transport::Messages::RegionReRoute`: re-route message type for forwarding tasks to target regions
 
 ## [1.3.0] - 2026-03-21
 
