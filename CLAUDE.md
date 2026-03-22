@@ -25,7 +25,8 @@ Legion::Transport
 │       ├── Agent       # Agent communication exchange (identity-bound: GAIA frames, preferences, proactive)
 │       ├── Crypt       # Encryption exchange
 │       ├── Extensions  # Extension exchange
-│       └── Lex         # LEX exchange (inherits Extensions)
+│       ├── Lex         # LEX exchange (inherits Extensions)
+│       └── Logging     # Log event exchange (legion.logging) for structured log event publishing
 ├── Queue               # Base queue class (extends Bunny::Queue)
 │   └── Queues/
 │       ├── Node        # Node queue
