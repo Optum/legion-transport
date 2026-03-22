@@ -1,5 +1,10 @@
 # Legion::Transport ChangeLog
 
+## [1.3.7] - 2026-03-22
+
+### Changed
+- Updated gemspec dependency version constraints: `legion-json >= 1.2.0`, `legion-settings >= 1.3.12`
+
 ## [1.3.6] - 2026-03-22
 
 ### Changed
