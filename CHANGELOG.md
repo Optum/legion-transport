@@ -1,5 +1,13 @@
 # Legion::Transport ChangeLog
 
+## [1.3.3] - 2026-03-22
+
+### Added
+- TLS/mTLS direct-settings path in `Connection::SSL#tls_options`: reads `transport.tls`, `transport.tls_ca_cert`, `transport.tls_client_cert`, `transport.tls_client_key`, and `transport.verify_peer` from Legion::Settings when `Legion::Crypt::TLS` is not available
+- `verify_peer` defaults to `true` when not explicitly set to `false`
+- Logging via `Legion::Logging.info '[Transport] TLS enabled for RabbitMQ connection'` (guarded with `defined?`) when TLS is configured via either path
+- 7 new specs covering direct-settings TLS path (358 total, 0 failures)
+
 ## [1.3.2] - 2026-03-21
 
 ### Added

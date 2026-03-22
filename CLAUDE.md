@@ -8,7 +8,7 @@
 Ruby gem that manages the connection between LegionIO and its FIFO queue system (RabbitMQ over AMQP 0.9.1). Provides abstractions for exchanges, queues, messages, and consumers with thread-safe connection management.
 
 **GitHub**: https://github.com/LegionIO/legion-transport
-**Version**: 1.2.5
+**Version**: 1.3.3
 **License**: Apache-2.0
 
 ## Architecture
@@ -50,7 +50,7 @@ Legion::Transport
 ├── Local               # In-memory pub/sub for local development mode (no RabbitMQ)
 ├── Spool               # Disk-backed message buffer: persist messages when RabbitMQ unavailable, replay on reconnect
 ├── Settings            # Default configuration with env var overrides
-└── Version             # 1.2.3
+└── Version             # 1.3.3
 ```
 
 ## Key Design Patterns
@@ -162,7 +162,7 @@ bundle exec rspec
 bundle exec rubocop
 ```
 
-Spec count: 166 examples
+Spec count: 358 examples
 
 ---
 

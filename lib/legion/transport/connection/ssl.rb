@@ -5,24 +5,42 @@ module Legion
     module Connection
       module SSL
         def tls_options(tls_config: nil, port: nil)
-          return {} unless defined?(Legion::Crypt::TLS)
+          if defined?(Legion::Crypt::TLS)
+            tls_config ||= tls_settings
+            port       ||= transport_port
 
-          tls_config ||= tls_settings
-          port       ||= transport_port
+            tls = Legion::Crypt::TLS.resolve(tls_config, port: port)
+            return {} unless tls[:enabled]
 
-          tls = Legion::Crypt::TLS.resolve(tls_config, port: port)
-          return {} unless tls[:enabled]
+            Legion::Logging.info '[Transport] TLS enabled for RabbitMQ connection' if defined?(Legion::Logging)
+            return {
+              tls:                 true,
+              tls_cert:            tls[:cert],
+              tls_key:             tls[:key],
+              tls_ca_certificates: [tls[:ca]].compact,
+              verify_peer:         tls[:verify] != :none
+            }
+          end
 
-          {
-            tls:                 true,
-            tls_cert:            tls[:cert],
-            tls_key:             tls[:key],
-            tls_ca_certificates: [tls[:ca]].compact,
-            verify_peer:         tls[:verify] != :none
-          }
+          direct_tls_options
         end
 
         private
+
+        def direct_tls_options
+          transport = defined?(Legion::Settings) ? Legion::Settings[:transport] : {}
+          return {} unless transport[:tls]
+
+          Legion::Logging.info '[Transport] TLS enabled for RabbitMQ connection' if defined?(Legion::Logging)
+
+          {
+            tls:                 true,
+            tls_ca_certificates: [transport[:tls_ca_cert]].compact,
+            tls_cert:            transport[:tls_client_cert],
+            tls_key:             transport[:tls_client_key],
+            verify_peer:         transport[:verify_peer] != false
+          }
+        end
 
         def tls_settings
           return {} unless defined?(Legion::Settings)
