@@ -125,6 +125,7 @@ module Legion
         @options[:headers] ||= Concurrent::Hash.new
         @options[:headers]['legion_protocol_version'] ||= '2.0'
         inject_region_header
+        inject_legion_region_header
         %i[task_id relationship_id trigger_namespace_id trigger_function_id parent_id master_id runner_namespace runner_class namespace_id function_id function
            chain_id debug].each do |header|
           next unless @options.key? header
@@ -180,6 +181,17 @@ module Legion
         @options[:headers]['x-legion-region'] = region
         affinity = @options[:region_affinity] || 'prefer_local'
         @options[:headers]['x-legion-region-affinity'] = affinity
+      end
+
+      def inject_legion_region_header
+        return unless defined?(Legion::Region) &&
+                      Legion::Region.respond_to?(:current) &&
+                      Legion::Region.current
+
+        @options[:headers]['region'] = Legion::Region.current
+        @options[:headers]['region_affinity'] = @options[:region_affinity] ||
+                                                (defined?(Legion::Settings) && Legion::Settings.dig(:region, :default_affinity)) ||
+                                                'prefer_local'
       end
 
       def spool_message(error)

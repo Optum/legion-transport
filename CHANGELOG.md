@@ -1,5 +1,10 @@
 # Legion::Transport ChangeLog
 
+## [Unreleased]
+
+### Added
+- `Legion::Transport::Exchanges::Logging`: topic exchange (`legion.logging`) for structured log event publishing
+
 ## [1.3.0] - 2026-03-21
 
 ### Added
