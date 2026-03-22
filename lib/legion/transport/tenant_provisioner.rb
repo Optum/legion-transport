@@ -16,6 +16,10 @@ module Legion
         dlx = TenantTopology.exchange_name('dlx', tenant_id: tenant_id)
         ch.fanout(dlx, durable: true)
         ch.close unless channel
+        Legion::Logging.info "Provisioned tenant topology for tenant_id=#{tenant_id}" if defined?(Legion::Logging)
+      rescue StandardError => e
+        Legion::Logging.warn "Failed to provision tenant topology for tenant_id=#{tenant_id}: #{e.message}" if defined?(Legion::Logging)
+        raise
       end
 
       def self.deprovision(tenant_id, channel: nil)
@@ -29,6 +33,10 @@ module Legion
           end
         end
         ch.close unless channel
+        Legion::Logging.info "Deprovisioned tenant topology for tenant_id=#{tenant_id}" if defined?(Legion::Logging)
+      rescue StandardError => e
+        Legion::Logging.warn "Failed to deprovision tenant topology for tenant_id=#{tenant_id}: #{e.message}" if defined?(Legion::Logging)
+        raise
       end
     end
   end

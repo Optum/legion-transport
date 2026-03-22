@@ -23,6 +23,7 @@ module Legion
 
               if (conn = @available.pop)
                 @in_use << conn
+                Legion::Logging.debug "Pool checkout (available=#{@available.size} in_use=#{@in_use.size})" if defined?(Legion::Logging)
                 return conn
               end
 
@@ -30,11 +31,15 @@ module Legion
               if total < @size
                 conn = @factory.call
                 @in_use << conn
+                Legion::Logging.debug "Pool checkout new connection (available=#{@available.size} in_use=#{@in_use.size})" if defined?(Legion::Logging)
                 return conn
               end
 
               remaining = deadline - Time.now
-              raise Legion::Transport::PoolTimeout, 'timed out waiting for available connection' if remaining <= 0
+              if remaining <= 0
+                Legion::Logging.warn "Pool timeout after #{@timeout}s (size=#{@size} in_use=#{@in_use.size})" if defined?(Legion::Logging)
+                raise Legion::Transport::PoolTimeout, 'timed out waiting for available connection'
+              end
 
               @condition.wait(@mutex, remaining)
             end
@@ -45,6 +50,7 @@ module Legion
           @mutex.synchronize do
             @in_use.delete(connection)
             @available << connection if connection.respond_to?(:open?) && connection.open?
+            Legion::Logging.debug "Pool checkin (available=#{@available.size} in_use=#{@in_use.size})" if defined?(Legion::Logging)
             @condition.signal
           end
         end

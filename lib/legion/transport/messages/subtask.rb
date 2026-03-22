@@ -19,14 +19,16 @@ module Legion
         end
 
         def routing_key
-          if @options[:conditions].is_a?(String) && @options[:conditions].length > 2
-            'task.subtask.conditioner'
-          elsif @options[:transformation].is_a?(String) && @options[:transformation].length > 2
-            'task.subtask.transform'
-          elsif @options[:function_id].is_a? Integer
-            function = Legion::Data::Model::Function[@options[:function_id]]
-            "#{function.runner.extension.values[:exchange]}.#{function.runner.values[:queue]}.#{function.values[:name]}"
-          end
+          key = if @options[:conditions].is_a?(String) && @options[:conditions].length > 2
+                  'task.subtask.conditioner'
+                elsif @options[:transformation].is_a?(String) && @options[:transformation].length > 2
+                  'task.subtask.transform'
+                elsif @options[:function_id].is_a? Integer
+                  function = Legion::Data::Model::Function[@options[:function_id]]
+                  "#{function.runner.extension.values[:exchange]}.#{function.runner.values[:queue]}.#{function.values[:name]}"
+                end
+          Legion::Logging.debug "SubTask routing_key=#{key} function_id=#{@options[:function_id]}" if defined?(Legion::Logging)
+          key
         end
 
         def validate

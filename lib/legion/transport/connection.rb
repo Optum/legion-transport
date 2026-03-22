@@ -43,6 +43,9 @@ module Legion
             session.create_channel(nil, settings[:channel][:session_worker_pool_size])
                    .basic_qos(settings[:prefetch], true)
             Legion::Settings[:transport][:connected] = true
+            host = settings.dig(:connection, :host) || '127.0.0.1'
+            port = settings.dig(:connection, :port) || 5672
+            Legion::Logging.info "Connected to amqp://#{host}:#{port}" if defined?(Legion::Logging)
           end
 
           register_session_callbacks
@@ -55,6 +58,7 @@ module Legion
 
           @channel_thread.value = session.create_channel(nil, settings[:channel][:default_worker_pool_size], false, 10)
           @channel_thread.value.prefetch(settings[:prefetch])
+          Legion::Logging.debug "Channel created for thread #{Thread.current.object_id}" if defined?(Legion::Logging)
           @channel_thread.value
         end
 
@@ -80,6 +84,7 @@ module Legion
         end
 
         def shutdown
+          Legion::Logging.info 'Transport connection shutting down' if defined?(Legion::Logging)
           session.close
           @session = nil
         end

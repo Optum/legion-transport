@@ -19,6 +19,7 @@ module Legion
 
             if (ch = @available.pop)
               @in_use << ch
+              Legion::Logging.debug "ChannelPool borrow reused (available=#{@available.size} in_use=#{@in_use.size})" if defined?(Legion::Logging)
               return ch
             end
 
@@ -28,6 +29,7 @@ module Legion
             ch = @connection.create_channel
             ch.prefetch(@prefetch) if ch.respond_to?(:prefetch)
             @in_use << ch
+            Legion::Logging.debug "ChannelPool borrow new channel (available=#{@available.size} in_use=#{@in_use.size})" if defined?(Legion::Logging)
             ch
           end
         end
@@ -39,6 +41,7 @@ module Legion
             return if (@available.size + @in_use.size) >= @size
 
             @available << channel
+            Legion::Logging.debug "ChannelPool return (available=#{@available.size} in_use=#{@in_use.size})" if defined?(Legion::Logging)
           end
         end
 
@@ -48,11 +51,13 @@ module Legion
 
         def close_all
           @mutex.synchronize do
+            total = @available.size + @in_use.size
             (@available + @in_use).each do |ch|
               ch.close rescue nil # rubocop:disable Style/RescueModifier
             end
             @available.clear
             @in_use.clear
+            Legion::Logging.info "ChannelPool closed #{total} channel(s)" if defined?(Legion::Logging)
           end
         end
 

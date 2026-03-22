@@ -1,5 +1,21 @@
 # Legion::Transport ChangeLog
 
+## [1.3.4] - 2026-03-22
+
+### Added
+- Comprehensive logging across transport operations using `Legion::Logging` (guarded with `defined?`)
+- `connection.rb`: `.info` on successful connect (host:port), `.info` on shutdown, `.debug` on per-thread channel creation
+- `consumer.rb`: `.info` on subscribe with queue name and consumer tag
+- `message.rb`: `.debug` on successful publish (exchange, routing_key, class), `.debug` when encryption is applied
+- `messages/task.rb`: `.debug` on routing_key derivation
+- `messages/subtask.rb`: `.debug` on routing_key derivation with function_id
+- `messages/dynamic.rb`: `.debug` on routing_key/function_id derivation
+- `local.rb`: `.info` on setup and shutdown, `.debug` on publish and subscribe
+- `helpers/pool.rb`: `.warn` on pool timeout, `.debug` on checkout/checkin with pool state
+- `helpers/channel_pool.rb`: `.debug` on channel borrow/return with pool state, `.info` on close_all
+- `tenant_provisioner.rb`: `.info` on provision/deprovision success, `.warn` on failure
+- `tenant_quota.rb`: `.warn` before raising quota exceeded errors (message rate and byte rate)
+
 ## [1.3.3] - 2026-03-22
 
 ### Added

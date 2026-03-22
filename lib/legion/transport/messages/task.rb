@@ -17,15 +17,17 @@ module Legion
         end
 
         def routing_key
-          if @options.key? :routing_key
-            @options[:routing_key]
-          elsif @options[:conditions].is_a?(String) && @options[:conditions].length > 2
-            'task.subtask.conditioner'
-          elsif @options[:transformation].is_a?(String) && @options[:transformation].length > 2
-            'task.subtask.transform'
-          elsif @options[:queue].is_a?(String) && @options[:function].is_a?(String)
-            "#{@options[:queue]}.#{@options[:function]}"
-          end
+          key = if @options.key? :routing_key
+                  @options[:routing_key]
+                elsif @options[:conditions].is_a?(String) && @options[:conditions].length > 2
+                  'task.subtask.conditioner'
+                elsif @options[:transformation].is_a?(String) && @options[:transformation].length > 2
+                  'task.subtask.transform'
+                elsif @options[:queue].is_a?(String) && @options[:function].is_a?(String)
+                  "#{@options[:queue]}.#{@options[:function]}"
+                end
+          Legion::Logging.debug "Task routing_key=#{key}" if defined?(Legion::Logging)
+          key
         end
 
         def validate

@@ -27,6 +27,8 @@ module Legion
                               correlation_id:   correlation_id,
                               app_id:           app_id,
                               timestamp:        timestamp)
+        ex_name = exchange_dest.respond_to?(:name) ? exchange_dest.name : exchange_dest.to_s
+        Legion::Logging.debug "Published to exchange=#{ex_name} routing_key=#{routing_key || ''} class=#{self.class.name}" if defined?(Legion::Logging)
       rescue Bunny::ConnectionClosedError, Bunny::ChannelAlreadyClosed, Bunny::ChannelError,
              Bunny::NetworkErrorWrapper, IOError => e
         spool_message(e)
@@ -91,6 +93,7 @@ module Legion
           encrypted = Legion::Crypt.encrypt(message_payload)
           headers[:iv] = encrypted[:iv]
           @options[:content_encoding] = 'encrypted/cs'
+          Legion::Logging.debug "Message encrypted with content_encoding=encrypted/cs class=#{self.class.name}" if defined?(Legion::Logging)
           return encrypted[:enciphered_message]
         else
           @options[:content_encoding] = 'identity'

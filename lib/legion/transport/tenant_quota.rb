@@ -31,9 +31,13 @@ module Legion
               entry[:bytes] = 0
             end
 
-            raise QuotaExceededError, "Tenant #{tenant_id} exceeded message rate quota (#{msg_limit} msg/s)" if msg_limit && entry[:count] >= msg_limit
+            if msg_limit && entry[:count] >= msg_limit
+              Legion::Logging.warn "Tenant #{tenant_id} exceeded message rate quota (#{msg_limit} msg/s)" if defined?(Legion::Logging)
+              raise QuotaExceededError, "Tenant #{tenant_id} exceeded message rate quota (#{msg_limit} msg/s)"
+            end
 
             if size_limit && (entry[:bytes] + message_size) > size_limit
+              Legion::Logging.warn "Tenant #{tenant_id} exceeded byte rate quota (#{size_limit} bytes/s)" if defined?(Legion::Logging)
               raise QuotaExceededError, "Tenant #{tenant_id} exceeded byte rate quota (#{size_limit} bytes/s)"
             end
 
