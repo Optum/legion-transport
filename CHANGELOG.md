@@ -1,5 +1,11 @@
 # Legion::Transport ChangeLog
 
+## [1.3.8] - 2026-03-22
+
+### Fixed
+- Shutdown no longer hangs when Bunny is mid-recovery: disable auto-recovery flag, close with 5s timeout, force-close transport socket on timeout
+- Reduce default `recovery_attempts` from 100 to 10 (20s max retry vs 200s); configurable via `transport.connection.recovery_attempts` env var
+
 ## [1.3.7] - 2026-03-22
 
 ### Changed

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'concurrent-ruby'
+require 'timeout'
 require_relative 'connection/ssl'
 
 module Legion
@@ -91,7 +92,21 @@ module Legion
 
         def shutdown
           Legion::Logging.info 'Transport connection shutting down' if defined?(Legion::Logging)
-          session.close
+          return unless @session
+
+          s = session
+          return unless s
+
+          # Disable automatic recovery so Bunny stops retrying during shutdown
+          s.instance_variable_set(:@recovering_from_network_failure, false) if s.respond_to?(:instance_variable_set)
+
+          Timeout.timeout(5) { s.close }
+        rescue Timeout::Error
+          Legion::Logging.warn('Transport shutdown timed out after 5s, forcing close') if defined?(Legion::Logging)
+          s&.instance_variable_get(:@transport)&.close rescue nil # rubocop:disable Style/RescueModifier
+        rescue StandardError => e
+          Legion::Logging.warn("Transport shutdown error: #{e.message}") if defined?(Legion::Logging)
+        ensure
           @session = nil
         end
 

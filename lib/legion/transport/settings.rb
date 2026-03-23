@@ -27,7 +27,7 @@ module Legion
           host:                      host,
           port:                      port,
           vhost:                     ENV['transport.connection.vhost'] || '/',
-          recovery_attempts:         100,
+          recovery_attempts:         (ENV['transport.connection.recovery_attempts'] || 10).to_i,
           logger_level:              ENV['transport.log_level'] || 'info',
           connected:                 false,
           resolved_hosts:            resolve_hosts(
