@@ -1,5 +1,10 @@
 # Legion::Transport ChangeLog
 
+## [1.3.9] - 2026-03-22
+
+### Added
+- `Legion::Transport::Helper` mixin module with transport convenience methods for LEX extensions (transport_path, transport_class, messages, queues, exchanges, default_exchange, transport_connected?)
+
 ## [1.3.8] - 2026-03-22
 
 ### Fixed

@@ -52,4 +52,5 @@ module Legion
   require_relative 'transport/tenant_topology'
   require_relative 'transport/tenant_provisioner'
   require_relative 'transport/tenant_quota'
+  require_relative 'transport/helper'
 end
