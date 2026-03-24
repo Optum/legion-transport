@@ -11,7 +11,7 @@ RSpec.describe Legion::Transport::Connection do
       closed?:        false,
       close:          nil,
       start:          nil,
-      create_channel: instance_double('Bunny::Channel', basic_qos: nil, open?: true, close: nil)
+      create_channel: instance_double('Bunny::Channel', basic_qos: nil, open?: true, close: nil, prefetch: nil)
     )
   end
 

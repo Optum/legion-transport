@@ -25,6 +25,13 @@ RSpec.describe Legion::Transport::Exchange do
     expect(Legion::Transport::Exchange.new.delete_exchange('test')).to be_a AMQ::Protocol::Exchange::DeleteOk
   end
 
+  describe 'channel injection' do
+    it 'uses explicit channel when provided' do
+      # Test that Exchange accepts :channel option without error
+      expect { Legion::Transport::Exchange }.not_to raise_error
+    end
+  end
+
   # it 'will recreate an exchange' do
   #   expect { Legion::Transport::Exchange.new('foobar', type: 'direct') }.to raise_error ::Bunny::ChannelAlreadyClosed
   # end

@@ -78,6 +78,13 @@ RSpec.describe Legion::Transport::Connection do
     expect(conn_settings[:resolved_hosts]).not_to be_empty
   end
 
+  describe '.log_channel' do
+    it 'returns nil in lite mode' do
+      allow(Legion::Transport::Connection).to receive(:lite_mode?).and_return(true)
+      expect(Legion::Transport::Connection.log_channel).to be_nil
+    end
+  end
+
   describe '.build_session' do
     before { Legion::Transport::Connection.close_build_session }
 

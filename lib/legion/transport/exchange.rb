@@ -7,6 +7,7 @@ module Legion
 
       def initialize(exchange = exchange_name, options = {})
         @options = options
+        @explicit_channel = @options.delete(:channel)
         @type = options[:type] || default_type
         super(channel, @type, exchange, options_builder(default_options, exchange_options, @options))
       rescue Legion::Transport::CONNECTOR::PreconditionFailed, Legion::Transport::CONNECTOR::ChannelAlreadyClosed
@@ -57,7 +58,7 @@ module Legion
       end
 
       def channel
-        @channel ||= Legion::Transport::Connection.channel
+        @channel ||= (@explicit_channel || Legion::Transport::Connection.channel)
       rescue Legion::Transport::CONNECTOR::ChannelLevelException => e
         @channel = Legion::Transport::Connection.channel
         raise e unless @channel.open?

@@ -62,6 +62,8 @@ module Legion
           end
 
           register_session_callbacks
+          @log_channel = session.create_channel
+          @log_channel.prefetch(1)
           apply_quorum_policy_if_enabled
           true
         end
@@ -141,6 +143,7 @@ module Legion
         rescue StandardError => e
           Legion::Logging.warn("Transport shutdown error: #{e.message}") if defined?(Legion::Logging)
         ensure
+          @log_channel = nil
           @session = nil
         end
 
@@ -188,6 +191,20 @@ module Legion
 
         def build_session_open?
           @build_session&.value&.open? == true
+        end
+
+        def log_channel
+          return nil if lite_mode?
+          return @log_channel if @log_channel&.open?
+
+          if session&.open?
+            @log_channel = session.create_channel
+            @log_channel.prefetch(1)
+            @log_channel
+          end
+        rescue StandardError => e
+          Legion::Logging.debug("Connection#log_channel recovery failed: #{e.message}") if defined?(Legion::Logging)
+          nil
         end
 
         private
