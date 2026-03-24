@@ -10,6 +10,10 @@ module Legion
       class << self
         include Legion::Transport::Connection::SSL
 
+        def lite_mode?
+          Legion::Transport::TYPE == 'local'
+        end
+
         def settings
           Legion::Settings[:transport]
         end
@@ -30,6 +34,7 @@ module Legion
 
         def setup(connection_name: 'Legion', **)
           Legion::Transport.logger.info("Using transport connector: #{Legion::Transport::CONNECTOR}")
+          return setup_lite if lite_mode?
 
           if @session.respond_to?(:value) && session.respond_to?(:closed?) && session.closed?
             @channel_thread = Concurrent::ThreadLocalVar.new(nil)
@@ -94,6 +99,12 @@ module Legion
           Legion::Logging.info 'Transport connection shutting down' if defined?(Legion::Logging)
           return unless @session
 
+          if lite_mode?
+            session&.close
+            @session = nil
+            return
+          end
+
           s = session
           return unless s
 
@@ -111,6 +122,17 @@ module Legion
         end
 
         private
+
+        def setup_lite
+          require_relative 'local'
+          Legion::Transport::Local.setup
+          @session ||= Concurrent::AtomicReference.new(Legion::Transport::InProcess::Session.new)
+          session.start unless session.open?
+          @channel_thread = Concurrent::ThreadLocalVar.new(nil)
+          Legion::Settings[:transport][:connected] = true
+          Legion::Logging.info 'Connected via in-process transport (lite mode)' if defined?(Legion::Logging)
+          true
+        end
 
         def create_session_with_failover(connection_name:)
           opts = build_bunny_opts(connection_name: connection_name)

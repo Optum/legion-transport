@@ -7,9 +7,15 @@ require_relative 'transport/errors'
 
 module Legion
   module Transport
-    require 'bunny'
-    TYPE = 'bunny'
-    CONNECTOR = ::Bunny
+    if ENV['LEGION_MODE'] == 'lite'
+      require_relative 'transport/in_process'
+      TYPE = 'local'
+      CONNECTOR = Legion::Transport::InProcess
+    else
+      require 'bunny'
+      TYPE = 'bunny'
+      CONNECTOR = ::Bunny
+    end
 
     class << self
       def logger

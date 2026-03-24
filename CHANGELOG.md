@@ -1,5 +1,14 @@
 # Legion::Transport ChangeLog
 
+## [1.3.10] - 2026-03-24
+
+### Added
+- `Legion::Transport::InProcess` adapter module for lite mode: stub Session, Channel, Exchange, Queue, Consumer classes that mirror the Bunny API but delegate to Transport::Local in-memory pub/sub
+- Conditional CONNECTOR selection: `LEGION_MODE=lite` env var loads InProcess instead of Bunny
+- `Connection.lite_mode?` class method checks `TYPE == 'local'`
+- `Connection.setup` returns InProcess session in lite mode, skipping Bunny entirely
+- `Connection.shutdown` handles lite mode with simple session close
+
 ## [1.3.9] - 2026-03-22
 
 ### Added
