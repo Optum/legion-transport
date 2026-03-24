@@ -1,5 +1,13 @@
 # Legion::Transport ChangeLog
 
+## [1.3.13] - 2026-03-24
+
+### Added
+- `Transport::Connection::Vault` module: Vault PKI TLS options via `#vault_pki_tls_options`; writes cert/key/CA chain to tempfiles for Bunny mTLS connections
+
+### Changed
+- `Transport::Connection` now includes `Connection::Vault` and merges PKI TLS options into Bunny opts when `transport.tls.vault_pki: true` and `security.mtls.enabled: true`
+
 ## [1.3.12] - 2026-03-24
 
 ### Added
