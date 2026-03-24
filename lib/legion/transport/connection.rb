@@ -3,12 +3,14 @@
 require 'concurrent-ruby'
 require 'timeout'
 require_relative 'connection/ssl'
+require_relative 'connection/vault'
 
 module Legion
   module Transport
     module Connection
       class << self
         include Legion::Transport::Connection::SSL
+        include Legion::Transport::Connection::Vault
 
         def lite_mode?
           Legion::Transport::TYPE == 'local'
@@ -241,6 +243,8 @@ module Legion
           end
 
           opts.merge!(tls_options)
+          vault_opts = vault_pki_tls_options
+          opts.merge!(vault_opts) unless vault_opts.empty?
           opts
         end
       end
