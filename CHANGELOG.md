@@ -1,5 +1,12 @@
 # Legion::Transport ChangeLog
 
+## [1.3.13] - 2026-03-24
+
+### Added
+- `Connection.open_build_session` / `close_build_session`: disposable parallel AMQP session for extension loading; `Thread.current[:legion_build_session]` flag routes channel calls to build session
+- `Connection.log_channel`: dedicated `@log_channel` on the main session for log-event publishing; auto-recovers if channel closes
+- `Exchange#initialize`: accepts `channel:` option to use an explicit channel instead of the shared pool channel
+
 ## [1.3.12] - 2026-03-24
 
 ### Added

@@ -58,7 +58,7 @@ module Legion
       end
 
       def channel
-        @channel ||= (@explicit_channel || Legion::Transport::Connection.channel)
+        @channel ||= @explicit_channel || Legion::Transport::Connection.channel
       rescue Legion::Transport::CONNECTOR::ChannelLevelException => e
         @channel = Legion::Transport::Connection.channel
         raise e unless @channel.open?

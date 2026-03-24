@@ -70,9 +70,7 @@ module Legion
 
         def channel
           # Build threads route to build session
-          if Thread.current[:legion_build_session] && @build_session
-            return build_channel
-          end
+          return build_channel if Thread.current[:legion_build_session] && @build_session
 
           if @pool
             sess = @pool.checkout
@@ -180,7 +178,8 @@ module Legion
           Legion::Logging.info 'Build session closed (all build channels released)' if defined?(Legion::Logging)
         rescue Timeout::Error
           Legion::Logging.warn 'Build session close timed out, forcing' if defined?(Legion::Logging)
-          @build_session&.value&.instance_variable_get(:@transport)&.close rescue nil # rubocop:disable Style/RescueModifier
+          bs = @build_session&.value
+          bs&.instance_variable_get(:@transport)&.close rescue nil # rubocop:disable Style/RescueModifier
           @build_session = nil
           @build_channel_thread = nil
         rescue StandardError => e
