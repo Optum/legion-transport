@@ -67,6 +67,11 @@ module Legion
         end
 
         def channel
+          # Build threads route to build session
+          if Thread.current[:legion_build_session] && @build_session
+            return build_channel
+          end
+
           if @pool
             sess = @pool.checkout
             ch = sess.create_channel(nil, settings[:channel][:default_worker_pool_size], false, 10)
@@ -108,6 +113,7 @@ module Legion
 
         def shutdown
           Legion::Logging.info 'Transport connection shutting down' if defined?(Legion::Logging)
+          close_build_session
 
           if @pool
             @pool.shutdown
@@ -136,6 +142,52 @@ module Legion
           Legion::Logging.warn("Transport shutdown error: #{e.message}") if defined?(Legion::Logging)
         ensure
           @session = nil
+        end
+
+        def open_build_session(connection_name: 'Legion::Build')
+          return if lite_mode?
+          return if @build_session
+
+          @build_session = Concurrent::AtomicReference.new(
+            create_session_with_failover(connection_name: connection_name)
+          )
+          @build_session.value.start
+          @build_channel_thread = Concurrent::ThreadLocalVar.new(nil)
+          Legion::Logging.info 'Build session opened' if defined?(Legion::Logging)
+        end
+
+        def build_channel
+          return channel unless @build_session
+          return @build_channel_thread.value if @build_channel_thread.value&.open?
+
+          @build_channel_thread.value = @build_session.value.create_channel(
+            nil, settings[:channel][:default_worker_pool_size], false, 10
+          )
+          @build_channel_thread.value.prefetch(settings[:prefetch])
+          @build_channel_thread.value
+        end
+
+        def close_build_session
+          return unless @build_session
+
+          s = @build_session.value
+          Timeout.timeout(10) { s.close } if s&.open?
+          @build_session = nil
+          @build_channel_thread = nil
+          Legion::Logging.info 'Build session closed (all build channels released)' if defined?(Legion::Logging)
+        rescue Timeout::Error
+          Legion::Logging.warn 'Build session close timed out, forcing' if defined?(Legion::Logging)
+          @build_session&.value&.instance_variable_get(:@transport)&.close rescue nil # rubocop:disable Style/RescueModifier
+          @build_session = nil
+          @build_channel_thread = nil
+        rescue StandardError => e
+          Legion::Logging.warn "Build session close error: #{e.message}" if defined?(Legion::Logging)
+          @build_session = nil
+          @build_channel_thread = nil
+        end
+
+        def build_session_open?
+          @build_session&.value&.open? == true
         end
 
         private
