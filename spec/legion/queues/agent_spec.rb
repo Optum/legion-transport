@@ -41,4 +41,14 @@ RSpec.describe Legion::Transport::Queues::Agent do
     allow(Legion::Settings).to receive(:[]).with('client').and_return({ 'name' => 'testnode' })
     expect(instance.queue_name).to eq 'agent.testnode'
   end
+
+  it 'uses classic queue type (not quorum)' do
+    instance = described_class.allocate
+    expect(instance.queue_options.dig(:arguments, :'x-queue-type')).to eq('classic')
+  end
+
+  it 'is not durable' do
+    instance = described_class.allocate
+    expect(instance.queue_options[:durable]).to be false
+  end
 end
