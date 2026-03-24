@@ -2,7 +2,7 @@
 
 Legion::Transport is the Ruby gem responsible for connecting LegionIO to its FIFO queue system (RabbitMQ over AMQP 0.9.1). It provides thread-safe connection management, exchange/queue abstractions, message publishing with optional encryption, and consumer wrappers.
 
-**Version**: 1.3.3
+**Version**: 1.3.10
 
 ## Features
 
@@ -11,9 +11,11 @@ Legion::Transport is the Ruby gem responsible for connecting LegionIO to its FIF
 - Topic-based exchange routing with priority queue support
 - Optional message encryption via `legion-crypt`
 - Dynamic credential retrieval from HashiCorp Vault
-- Auto-recovery on connection loss
+- Auto-recovery on connection loss (configurable attempts, 5s shutdown timeout)
 - Dead letter exchange support
 - Spool buffer for disk-backed message persistence when RabbitMQ is unavailable
+- `InProcess` adapter for lite mode (`LEGION_MODE=lite`): no RabbitMQ required, uses in-memory pub/sub
+- `Helper` mixin for LEX extensions: `transport_path`, `transport_class`, `messages`, `queues`, `exchanges`
 
 ## Supported Ruby Versions
 

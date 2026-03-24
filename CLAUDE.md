@@ -8,7 +8,7 @@
 Ruby gem that manages the connection between LegionIO and its FIFO queue system (RabbitMQ over AMQP 0.9.1). Provides abstractions for exchanges, queues, messages, and consumers with thread-safe connection management.
 
 **GitHub**: https://github.com/LegionIO/legion-transport
-**Version**: 1.3.3
+**Version**: 1.3.10
 **License**: Apache-2.0
 
 ## Architecture
@@ -18,6 +18,7 @@ Legion::Transport
 ├── Connection          # Thread-safe RabbitMQ session/channel management
 │   ├── SSL             # TLS configuration (cert, key, CA, Vault PKI)
 │   └── Vault           # Vault-based credential retrieval (stub)
+├── InProcess           # Lite mode adapter: stub Session/Channel/Exchange/Queue/Consumer delegating to Local
 ├── Exchange            # Base exchange class (extends Bunny::Exchange)
 │   └── Exchanges/
 │       ├── Task        # Task routing exchange
@@ -47,16 +48,17 @@ Legion::Transport
 │       └── TaskUpdate
 ├── Consumer            # AMQP consumer with auto-generated tags
 ├── Common              # Shared utilities (channel mgmt, options merging, consumer tags)
+├── Helper              # Injectable transport mixin for LEX extensions
 ├── Local               # In-memory pub/sub for local development mode (no RabbitMQ)
 ├── Spool               # Disk-backed message buffer: persist messages when RabbitMQ unavailable, replay on reconnect
 ├── Settings            # Default configuration with env var overrides
-└── Version             # 1.3.3
+└── Version             # 1.3.10
 ```
 
 ## Key Design Patterns
 
-### AMQP Client
-Uses `bunny` gem for AMQP 0.9.1. The entry point sets `Legion::Transport::TYPE = 'bunny'` and `Legion::Transport::CONNECTOR = ::Bunny` as constants.
+### AMQP Client / Lite Mode
+Uses `bunny` gem for AMQP 0.9.1. The entry point sets `Legion::Transport::TYPE` and `Legion::Transport::CONNECTOR` as constants. When `LEGION_MODE=lite` env var is set, `TYPE = 'local'` and `CONNECTOR = InProcess` instead of Bunny. `Connection.lite_mode?` checks `TYPE == 'local'`. `Connection.setup` returns an InProcess session in lite mode, skipping Bunny entirely.
 
 ### Thread-Safe Connection Management
 - `Concurrent::AtomicReference` wraps the AMQP session (one per process)
@@ -105,11 +107,13 @@ Vault integration: If `Legion::Settings[:crypt][:vault][:connected]` is true, cr
 
 | Path | Purpose |
 |------|---------|
-| `lib/legion/transport.rb` | Entry point, connector detection, logger/settings |
-| `lib/legion/transport/connection.rb` | Session/channel lifecycle (setup, reconnect, shutdown) |
+| `lib/legion/transport.rb` | Entry point, connector detection (Bunny vs InProcess), logger/settings |
+| `lib/legion/transport/connection.rb` | Session/channel lifecycle (setup, reconnect, shutdown, lite_mode?) |
 | `lib/legion/transport/connection/ssl.rb` | TLS settings module |
 | `lib/legion/transport/connection/vault.rb` | Vault PKI integration (stub) |
+| `lib/legion/transport/in_process.rb` | Lite mode adapter: stub Session, Channel, Exchange, Queue, Consumer |
 | `lib/legion/transport/common.rb` | Shared module (channel access, deep_merge, consumer tags) |
+| `lib/legion/transport/helper.rb` | Injectable transport mixin for LEX extensions |
 | `lib/legion/transport/exchange.rb` | Base Exchange class |
 | `lib/legion/transport/exchanges/agent.rb` | Agent exchange for identity-bound communication |
 | `lib/legion/transport/queue.rb` | Base Queue class |
@@ -162,7 +166,7 @@ bundle exec rspec
 bundle exec rubocop
 ```
 
-Spec count: 358 examples
+Spec count: 358+ examples (InProcess adapter specs added in v1.3.10)
 
 ---
 
