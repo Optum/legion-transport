@@ -7,10 +7,10 @@ RSpec.describe Legion::Transport::Connection do
   let(:fake_session) do
     instance_double(
       'Bunny::Session',
-      open?: true,
-      closed?: false,
-      close: nil,
-      start: nil,
+      open?:          true,
+      closed?:        false,
+      close:          nil,
+      start:          nil,
       create_channel: instance_double('Bunny::Channel', basic_qos: nil, open?: true, close: nil)
     )
   end
@@ -55,8 +55,8 @@ RSpec.describe Legion::Transport::Connection do
         allow(described_class).to receive(:settings).and_return(
           Legion::Settings[:transport].merge(
             connection_pool_size: pool_size,
-            channel: { session_worker_pool_size: 8, default_worker_pool_size: 1 },
-            prefetch: 2
+            channel:              { session_worker_pool_size: 8, default_worker_pool_size: 1 },
+            prefetch:             2
           )
         )
       end

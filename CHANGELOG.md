@@ -1,5 +1,16 @@
 # Legion::Transport ChangeLog
 
+## [1.3.12] - 2026-03-24
+
+### Added
+- Connection pool activated when `connection_pool_size > 1` (default: 1 — single session, no behavior change)
+- `Connection.setup_pool` private method: creates `Helpers::Pool` and checks out primary session
+- `Connection.channel` uses pool for channel creation when pool is active
+- `Connection.shutdown` drains pool if active
+
+### Fixed
+- Agent queue explicitly declares `x-queue-type: classic` (quorum queues require durability; auto-delete agent queues must use classic type)
+
 ## [1.3.11] - 2026-03-24
 
 ### Changed
