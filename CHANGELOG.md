@@ -1,5 +1,10 @@
 # Legion::Transport ChangeLog
 
+## [1.3.11] - 2026-03-24
+
+### Changed
+- Reindex docs: update CLAUDE.md and README with InProcess adapter and Helper mixin docs
+
 ## [1.3.10] - 2026-03-24
 
 ### Added
