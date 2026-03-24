@@ -36,7 +36,10 @@ module Legion
           Legion::Transport.logger.info("Using transport connector: #{Legion::Transport::CONNECTOR}")
           return setup_lite if lite_mode?
 
-          if @session.respond_to?(:value) && session.respond_to?(:closed?) && session.closed?
+          pool_size = settings[:connection_pool_size].to_i
+          if pool_size > 1
+            setup_pool(pool_size: pool_size, connection_name: connection_name)
+          elsif @session.respond_to?(:value) && session.respond_to?(:closed?) && session.closed?
             @channel_thread = Concurrent::ThreadLocalVar.new(nil)
           elsif @session.respond_to?(:value) && session.respond_to?(:closed?) && session.open?
             nil
@@ -64,6 +67,14 @@ module Legion
         end
 
         def channel
+          if @pool
+            sess = @pool.checkout
+            ch = sess.create_channel(nil, settings[:channel][:default_worker_pool_size], false, 10)
+            ch.prefetch(settings[:prefetch])
+            @pool.checkin(sess)
+            return ch
+          end
+
           return @channel_thread.value if !@channel_thread.value.nil? && @channel_thread.value.open?
 
           @channel_thread.value = session.create_channel(nil, settings[:channel][:default_worker_pool_size], false, 10)
@@ -97,6 +108,12 @@ module Legion
 
         def shutdown
           Legion::Logging.info 'Transport connection shutting down' if defined?(Legion::Logging)
+
+          if @pool
+            @pool.shutdown
+            @pool = nil
+          end
+
           return unless @session
 
           if lite_mode?
@@ -122,6 +139,25 @@ module Legion
         end
 
         private
+
+        def setup_pool(pool_size:, connection_name:)
+          require 'legion/transport/helpers/pool'
+          @pool = Legion::Transport::Helpers::Pool.new(size: pool_size) do
+            create_session_with_failover(connection_name: connection_name)
+          end
+          primary = @pool.checkout
+          primary.start
+          primary.create_channel(nil, settings[:channel][:session_worker_pool_size])
+                 .basic_qos(settings[:prefetch], true)
+          @pool.checkin(primary)
+          @session ||= Concurrent::AtomicReference.new(primary)
+          @channel_thread = Concurrent::ThreadLocalVar.new(nil)
+          Legion::Settings[:transport][:connected] = true
+          Legion::Logging.info "Connected via pool (size=#{pool_size})" if defined?(Legion::Logging)
+        rescue StandardError => e
+          @pool = nil
+          raise e
+        end
 
         def setup_lite
           require_relative 'local'
