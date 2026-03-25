@@ -6,6 +6,10 @@
 - `Connection.open_build_session` / `close_build_session`: disposable parallel AMQP session for extension loading; `Thread.current[:legion_build_session]` flag routes channel calls to build session
 - `Connection.log_channel`: dedicated `@log_channel` on the main session for log-event publishing; auto-recovers if channel closes
 - `Exchange#initialize`: accepts `channel:` option to use an explicit channel instead of the shared pool channel
+- `Transport::Connection::Vault` module: Vault PKI TLS options via `#vault_pki_tls_options`; writes cert/key/CA chain to tempfiles for Bunny mTLS connections
+
+### Changed
+- `Transport::Connection` now includes `Connection::Vault` and merges PKI TLS options into Bunny opts when `transport.tls.vault_pki: true` and `security.mtls.enabled: true`
 
 ## [1.3.12] - 2026-03-24
 
