@@ -91,7 +91,8 @@ module Legion
         end
 
         def session
-          nil if @session.nil?
+          return nil if @session.nil?
+
           @session.value
         end
 

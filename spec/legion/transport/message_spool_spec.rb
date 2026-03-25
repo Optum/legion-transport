@@ -17,6 +17,7 @@ RSpec.describe Legion::Transport::Message, 'spool fallback' do
     msg = described_class.new(routing_key: 'test.run', function: 'test')
     exchange_mock = instance_double(Legion::Transport::Exchange)
     allow(msg).to receive(:exchange).and_return(exchange_mock)
+    allow(exchange_mock).to receive(:respond_to?).with(:cached_instance).and_return(false)
     allow(exchange_mock).to receive(:respond_to?).with(:new).and_return(false)
     allow(exchange_mock).to receive(:respond_to?).with(:name).and_return(true)
     allow(exchange_mock).to receive(:name).and_return('task')

@@ -5,11 +5,39 @@ module Legion
     class Exchange < Legion::Transport::CONNECTOR::Exchange
       include Legion::Transport::Common
 
+      # Thread-local cache of declared exchange instances keyed by class name.
+      # Avoids redundant exchange_declare calls on every publish.
+      @instance_cache = Concurrent::ThreadLocalVar.new { {} }
+
+      class << self
+        def instance_cache
+          Legion::Transport::Exchange.instance_variable_get(:@instance_cache)
+        end
+
+        def cached_instance
+          cache = instance_cache.value
+          inst = cache[name]
+          return inst if inst&.channel&.open?
+
+          cache.delete(name)
+          nil
+        end
+
+        def cache_instance(inst)
+          instance_cache.value[name] = inst
+        end
+
+        def clear_cache
+          instance_cache.value.clear
+        end
+      end
+
       def initialize(exchange = exchange_name, options = {})
         @options = options
         @explicit_channel = @options.delete(:channel)
         @type = options[:type] || default_type
         super(channel, @type, exchange, options_builder(default_options, exchange_options, @options))
+        self.class.cache_instance(self) if self.class.respond_to?(:cache_instance)
       rescue Legion::Transport::CONNECTOR::PreconditionFailed, Legion::Transport::CONNECTOR::ChannelAlreadyClosed
         raise unless @retries.nil?
 

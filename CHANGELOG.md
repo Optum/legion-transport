@@ -1,5 +1,18 @@
 # Legion::Transport ChangeLog
 
+## [Unreleased]
+
+### Fixed
+- Fix exchange instance cache inheritance: subclasses now correctly read from parent's @instance_cache, preventing boot crash
+- Fix Connection#session: add missing `return` so nil check works correctly
+- Message#publish: use `cached_instance` when available to reuse the exchange instance cache instead of always calling `.new`
+- Message#publish: rescue `Timeout::Error` alongside other network errors so timeouts also spool
+
+### Changed
+- Bump read_timeout from 1 to 3 seconds
+- Bump continuation_timeout from 4000 to 8000 milliseconds
+- Bump session_worker_pool_size from 8 to 16
+
 ## [1.3.14] - 2026-03-24
 
 ### Fixed

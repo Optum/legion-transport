@@ -13,7 +13,14 @@ module Legion
       def publish(options = @options)
         raise unless @valid
 
-        exchange_dest = exchange.respond_to?(:new) ? exchange.new : exchange
+        ex_class = exchange
+        exchange_dest = if ex_class.respond_to?(:cached_instance)
+                          ex_class.cached_instance || ex_class.new
+                        elsif ex_class.respond_to?(:new)
+                          ex_class.new
+                        else
+                          ex_class
+                        end
         exchange_dest.publish(encode_message,
                               routing_key:      routing_key || '',
                               content_type:     options[:content_type] || content_type,
@@ -30,7 +37,7 @@ module Legion
         ex_name = exchange_dest.respond_to?(:name) ? exchange_dest.name : exchange_dest.to_s
         Legion::Logging.debug "Published to exchange=#{ex_name} routing_key=#{routing_key || ''} class=#{self.class.name}" if defined?(Legion::Logging)
       rescue Bunny::ConnectionClosedError, Bunny::ChannelAlreadyClosed, Bunny::ChannelError,
-             Bunny::NetworkErrorWrapper, IOError => e
+             Bunny::NetworkErrorWrapper, IOError, Timeout::Error => e
         spool_message(e)
       end
 

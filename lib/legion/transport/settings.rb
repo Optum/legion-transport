@@ -15,10 +15,10 @@ module Legion
         extra_hosts   = existing[:hosts] || []
 
         {
-          read_timeout:              1,
+          read_timeout:              3,
           heartbeat:                 (ENV['transport.connection.heartbeat'] || 30).to_i,
           automatically_recover:     true,
-          continuation_timeout:      4000,
+          continuation_timeout:      8000,
           network_recovery_interval: (ENV['transport.connection.recovery_interval'] || 2).to_i,
           connection_timeout:        (ENV['transport.connection.connection_timeout'] || 10).to_i,
           frame_max:                 65_536,
@@ -65,7 +65,7 @@ module Legion
       def self.channel
         {
           default_worker_pool_size: ENV['transport.channel.default_worker_pool_size'] || 1,
-          session_worker_pool_size: ENV['transport.channel.session_worker_pool_size'] || 8
+          session_worker_pool_size: ENV['transport.channel.session_worker_pool_size'] || 16
         }
       end
 
