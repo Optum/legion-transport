@@ -1,5 +1,10 @@
 # Legion::Transport ChangeLog
 
+## [1.3.14] - 2026-03-24
+
+### Fixed
+- CI workflow: pass `needs-rabbitmq: true` to shared CI workflow so RabbitMQ service container starts for specs
+
 ## [1.3.13] - 2026-03-24
 
 ### Added
