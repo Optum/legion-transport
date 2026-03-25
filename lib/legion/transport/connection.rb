@@ -8,6 +8,9 @@ require_relative 'connection/vault'
 module Legion
   module Transport
     module Connection
+      RECOVERY_WINDOW = 60
+      MAX_RECOVERIES_PER_WINDOW = 5
+
       class << self
         include Legion::Transport::Connection::SSL
         include Legion::Transport::Connection::Vault
@@ -116,6 +119,7 @@ module Legion
 
         def shutdown
           Legion::Logging.info 'Transport connection shutting down' if defined?(Legion::Logging)
+          @shutting_down = true
           close_build_session
 
           if @pool
@@ -134,18 +138,39 @@ module Legion
           s = session
           return unless s
 
-          # Disable automatic recovery so Bunny stops retrying during shutdown
-          s.instance_variable_set(:@recovering_from_network_failure, false) if s.respond_to?(:instance_variable_set)
-
-          Timeout.timeout(5) { s.close }
-        rescue Timeout::Error
-          Legion::Logging.warn('Transport shutdown timed out after 5s, forcing close') if defined?(Legion::Logging)
-          s&.instance_variable_get(:@transport)&.close rescue nil # rubocop:disable Style/RescueModifier
+          tear_down_session(s)
         rescue StandardError => e
           Legion::Logging.warn("Transport shutdown error: #{e.message}") if defined?(Legion::Logging)
         ensure
           @log_channel = nil
           @session = nil
+          @shutting_down = false
+        end
+
+        def force_reconnect(connection_name: 'Legion')
+          return if @shutting_down
+
+          Legion::Transport.logger.warn('Force reconnecting: pathological recovery loop detected')
+          old = session
+          @session = nil
+          @channel_thread = Concurrent::ThreadLocalVar.new(nil)
+          @recovery_timestamps = []
+
+          tear_down_session(old) if old
+          setup(connection_name: connection_name)
+
+          Array(@reconnect_callbacks).each do |cb|
+            cb.call
+          rescue StandardError => e
+            Legion::Transport.logger.warn("Reconnect callback failed: #{e.message}")
+          end
+        rescue StandardError => e
+          Legion::Transport.logger.error("force_reconnect failed: #{e.message}")
+        end
+
+        def on_force_reconnect(&block)
+          @reconnect_callbacks ||= []
+          @reconnect_callbacks << block
         end
 
         def open_build_session(connection_name: 'Legion::Build')
@@ -267,6 +292,8 @@ module Legion
         end
 
         def register_session_callbacks
+          @recovery_timestamps ||= []
+
           session.on_blocked { Legion::Transport.logger.warn('Legion::Transport is being blocked by RabbitMQ!') } if session.respond_to?(:on_blocked)
 
           if session.respond_to?(:on_unblocked)
@@ -279,7 +306,45 @@ module Legion
 
           session.after_recovery_completed do
             Legion::Transport.logger.info('Legion::Transport has completed recovery')
+
+            @recovery_timestamps << Time.now
+            @recovery_timestamps.reject! { |t| t < Time.now - RECOVERY_WINDOW }
+
+            if @recovery_timestamps.size >= MAX_RECOVERIES_PER_WINDOW
+              Legion::Transport.logger.warn(
+                "#{@recovery_timestamps.size} recoveries in #{RECOVERY_WINDOW}s — forcing full reconnect"
+              )
+              Thread.new { force_reconnect }
+            end
           end
+        end
+
+        def tear_down_session(sess)
+          sess.instance_variable_set(:@recovering_from_network_failure, false) rescue nil # rubocop:disable Style/RescueModifier
+
+          # Close transport socket FIRST — breaks IO.select in reader loop threads
+          begin
+            transport = sess.instance_variable_get(:@transport)
+            transport&.close
+          rescue StandardError
+            nil
+          end
+
+          # Then attempt orderly close with tight timeout
+          Timeout.timeout(3) { sess.close }
+        rescue Timeout::Error
+          Legion::Transport.logger.warn('Session close timed out, killing reader thread')
+          kill_reader_threads(sess)
+        rescue StandardError => e
+          Legion::Transport.logger.debug("tear_down_session: #{e.message}")
+        end
+
+        def kill_reader_threads(sess)
+          reader_loop = sess.instance_variable_get(:@reader_loop)
+          thread = reader_loop&.instance_variable_get(:@thread)
+          thread&.kill
+        rescue StandardError => e
+          Legion::Transport.logger.debug("kill_reader_threads: #{e.message}")
         end
 
         def apply_quorum_policy_if_enabled

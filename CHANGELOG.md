@@ -2,9 +2,19 @@
 
 ## [Unreleased]
 
+### Added
+- `Connection.force_reconnect`: full session replacement when pathological recovery loop detected (closes #1)
+- `Connection.on_force_reconnect(&block)`: register callbacks invoked after force reconnect
+- Recovery rate tracking: sliding window (`RECOVERY_WINDOW = 60s`, `MAX_RECOVERIES_PER_WINDOW = 5`) triggers `force_reconnect` automatically
+- `Connection#tear_down_session`: socket-first teardown (breaks IO.select in reader threads), orderly close with 3s timeout, thread kill as last resort
+- `Connection#kill_reader_threads`: forcibly terminates stuck Bunny reader loop threads
+- `Connection.shutdown` sets `@shutting_down` flag to prevent `force_reconnect` during teardown
+
 ### Fixed
 - Fix exchange instance cache inheritance: subclasses now correctly read from parent's @instance_cache, preventing boot crash
 - Fix Connection#session: add missing `return` so nil check works correctly
+- Fix infinite recovery loop on network interface change: Bunny recovery cycles endlessly when the underlying NIC changes; now detected and broken via force reconnect
+- Fix shutdown hang when Bunny is mid-recovery: `tear_down_session` disables recovery flag, closes transport socket first, and kills reader threads on timeout
 - Message#publish: use `cached_instance` when available to reuse the exchange instance cache instead of always calling `.new`
 - Message#publish: rescue `Timeout::Error` alongside other network errors so timeouts also spool
 
