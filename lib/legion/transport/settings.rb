@@ -124,6 +124,7 @@ module Legion
           tenant_topology:      tenant_topology,
           cluster_nodes:        cluster_csv.empty? ? [] : cluster_csv.split(',').map(&:strip),
           connection_pool_size: (ENV['transport.connection_pool_size'] || 1).to_i,
+          max_payload_bytes:    (ENV['transport.max_payload_bytes'] || 1_048_576).to_i,
           region:               ENV.fetch('transport.region', nil),
           management_port:      (ENV['transport.management_port'] || 15_672).to_i,
           quorum_queue_policy:  {

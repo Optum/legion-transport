@@ -10,9 +10,16 @@ module Legion
         validate
       end
 
+      def self.max_payload_bytes
+        Legion::Settings[:transport][:max_payload_bytes]
+      rescue StandardError
+        1_048_576
+      end
+
       def publish(options = @options)
         raise unless @valid
 
+        validate_payload_size
         ex_class = exchange
         exchange_dest = if ex_class.respond_to?(:cached_instance)
                           ex_class.cached_instance || ex_class.new
@@ -183,6 +190,16 @@ module Legion
       end
 
       private
+
+      def validate_payload_size
+        limit = self.class.max_payload_bytes
+        payload = Legion::JSON.dump(message)
+        size = payload.bytesize
+        return if size <= limit
+
+        raise Legion::Transport::PayloadTooLarge,
+              "message payload is #{size} bytes, exceeds limit of #{limit} bytes"
+      end
 
       def inject_region_header
         region = begin

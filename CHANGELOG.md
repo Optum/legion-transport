@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-03-25
+
+### Added
+- `Legion::Transport::PayloadTooLarge` error class
+- `max_payload_bytes` setting (default 1,048,576 bytes / 1MB), overridable via `transport.max_payload_bytes` env var
+- `Message.max_payload_bytes` class method returns the configured limit with fallback to 1MB
+- `Message#validate_payload_size` private method: checks serialized payload `bytesize` against limit and raises `PayloadTooLarge` before any AMQP interaction
+
+## [1.4.0] - 2026-03-25
+
 ### Added
 - `Connection.force_reconnect`: full session replacement when pathological recovery loop detected (closes #1)
 - `Connection.on_force_reconnect(&block)`: register callbacks invoked after force reconnect
