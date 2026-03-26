@@ -46,6 +46,8 @@ module Legion
         def on_unblocked(&); end
 
         def after_recovery_completed(&); end
+
+        def after_recovery_attempts_exhausted(&); end
       end
 
       class Channel

@@ -302,6 +302,13 @@ module Legion
             end
           end
 
+          if session.respond_to?(:after_recovery_attempts_exhausted)
+            session.after_recovery_attempts_exhausted do
+              Legion::Transport.logger.error('Recovery attempts exhausted — forcing full reconnect')
+              Thread.new { force_reconnect }
+            end
+          end
+
           return unless session.respond_to?(:after_recovery_completed)
 
           session.after_recovery_completed do

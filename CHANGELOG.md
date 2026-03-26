@@ -1,6 +1,9 @@
 # Legion::Transport ChangeLog
 
-## [Unreleased]
+## [1.4.2] - 2026-03-26
+
+### Fixed
+- register `after_recovery_attempts_exhausted` callback to trigger `force_reconnect` when Bunny exhausts all recovery attempts, preventing process hang requiring `kill -9`
 
 ## [1.4.1] - 2026-03-25
 

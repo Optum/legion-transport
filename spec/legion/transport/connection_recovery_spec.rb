@@ -85,6 +85,23 @@ RSpec.describe 'Connection recovery handling' do
     end
   end
 
+  describe '.register_session_callbacks' do
+    it 'hooks after_recovery_attempts_exhausted to trigger force_reconnect' do
+      mock_session = double('session')
+      allow(connection).to receive(:session).and_return(mock_session)
+      allow(mock_session).to receive(:respond_to?).with(:on_blocked).and_return(false)
+      allow(mock_session).to receive(:respond_to?).with(:on_unblocked).and_return(false)
+      allow(mock_session).to receive(:respond_to?).with(:after_recovery_attempts_exhausted).and_return(true)
+      allow(mock_session).to receive(:respond_to?).with(:after_recovery_completed).and_return(false)
+
+      exhausted_block = nil
+      allow(mock_session).to receive(:after_recovery_attempts_exhausted) { |&blk| exhausted_block = blk }
+
+      connection.send(:register_session_callbacks)
+      expect(exhausted_block).not_to be_nil
+    end
+  end
+
   describe 'recovery rate detection' do
     it 'detects pathological recovery loop' do
       timestamps = connection.instance_variable_get(:@recovery_timestamps) || []
