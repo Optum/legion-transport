@@ -1,5 +1,20 @@
 # Legion::Transport ChangeLog
 
+## [1.4.6] - 2026-03-27
+
+### Fixed
+- `create_dedicated_session` in lite mode now returns the shared `InProcess::Session` (if open) rather than creating a new one, preventing `Session#close` from inadvertently resetting process-global in-memory queue state
+- README "Full Default Settings" JSON corrected: `port` is now an integer (`5672`) matching the actual integer type in `Settings.connection`
+- README "Dedicated Sessions" section updated to clarify that lite-mode sessions share process-global in-process transport and are not isolated from other sessions
+
+### Changed
+- `spec/legion/transport/connection_lite_spec.rb` now explicitly requires `legion/transport/in_process` to ensure `InProcess::Session` is always loaded regardless of `LEGION_MODE` env var or spec execution order
+
+## [1.4.5] - 2026-03-27
+
+### Added
+- `Connection.create_dedicated_session` class method for creating isolated AMQP connections separate from the main transport session; returns an `InProcess::Session` in lite mode
+
 ## [1.4.4] - 2026-03-26
 
 ### Removed

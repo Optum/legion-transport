@@ -234,6 +234,31 @@ module Legion
           nil
         end
 
+        def create_dedicated_session(name: 'legion-dedicated')
+          if lite_mode?
+            # In-process transport is process-global; return the shared session so
+            # that callers do not inadvertently reset all queues via Session#close.
+            # Use an AtomicReference + compare_and_set so concurrent callers cannot
+            # each create a separate InProcess::Session (whose #close calls Local.reset!).
+            ref = (@session ||= Concurrent::AtomicReference.new(nil))
+
+            loop do
+              shared = ref.value
+              return shared if shared&.open?
+
+              s = Legion::Transport::InProcess::Session.new
+              s.start
+              # Install this session only if no other thread has won the race.
+              return s if ref.compare_and_set(shared, s)
+              # Another thread installed a session first; discard this one and retry.
+            end
+          end
+
+          sess = create_session_with_failover(connection_name: name)
+          sess.start
+          sess
+        end
+
         private
 
         def setup_pool(pool_size:, connection_name:)
