@@ -2,7 +2,7 @@
 
 Legion::Transport is the Ruby gem responsible for connecting LegionIO to its FIFO queue system (RabbitMQ over AMQP 0.9.1). It provides thread-safe connection management, exchange/queue abstractions, message publishing with optional encryption, and consumer wrappers.
 
-**Version**: 1.4.1
+**Version**: 1.4.5
 
 ## Features
 
@@ -43,6 +43,16 @@ require 'legion/transport'
 Legion::Transport::Connection.setup
 Legion::Transport::Connection.channel  # => Bunny::Channel
 Legion::Transport::Connection.session  # => Bunny::Session
+```
+
+### Dedicated Sessions
+
+`Connection.create_dedicated_session` creates an isolated AMQP connection separate from the shared main session. Useful for consumers that need their own connection (e.g., a dedicated log channel or a build pipeline connection). In lite mode it returns a started `InProcess::Session`.
+
+```ruby
+session = Legion::Transport::Connection.create_dedicated_session(name: 'my-log-session')
+channel = session.create_channel
+# use channel independently of the main transport session
 ```
 
 ### Publishing a Message
@@ -141,10 +151,10 @@ Configuration is managed through `legion-settings` with environment variable ove
     }
   },
   "connection": {
-    "read_timeout": 1,
+    "read_timeout": 3,
     "heartbeat": 30,
     "automatically_recover": true,
-    "continuation_timeout": 4000,
+    "continuation_timeout": 8000,
     "network_recovery_interval": 1,
     "connection_timeout": 1,
     "frame_max": 65536,
@@ -153,13 +163,13 @@ Configuration is managed through `legion-settings` with environment variable ove
     "host": "127.0.0.1",
     "port": "5672",
     "vhost": "/",
-    "recovery_attempts": 100,
+    "recovery_attempts": 10,
     "logger_level": "info",
     "connected": false
   },
   "channel": {
     "default_worker_pool_size": 1,
-    "session_worker_pool_size": 8
+    "session_worker_pool_size": 16
   }
 }
 ```
