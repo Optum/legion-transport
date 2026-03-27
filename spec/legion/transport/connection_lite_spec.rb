@@ -28,6 +28,7 @@ RSpec.describe Legion::Transport::Connection do
     end
 
     it 'uses create_session_with_failover and starts the session in non-lite mode' do
+      stub_const('Legion::Transport::TYPE', 'bunny')
       fake_session = instance_double('Bunny::Session', start: nil)
       allow(described_class).to receive(:create_session_with_failover)
         .with(connection_name: 'test')
