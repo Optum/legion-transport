@@ -243,6 +243,9 @@ module Legion
 
             s = Legion::Transport::InProcess::Session.new
             s.start
+            # Assign as the shared session so a subsequent setup_lite does not create
+            # a second in-process session (whose #close would call Local.reset!).
+            @session = Concurrent::AtomicReference.new(s)
             return s
           end
 

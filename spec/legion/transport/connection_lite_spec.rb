@@ -28,6 +28,20 @@ RSpec.describe Legion::Transport::Connection do
       expect(session).to respond_to(:create_channel)
     end
 
+    it 'reuses the shared in-process session when already started in lite mode' do
+      stub_const('Legion::Transport::TYPE', 'local')
+
+      shared_session = described_class.session
+      if shared_session.nil? || shared_session.closed?
+        shared_session = Legion::Transport::InProcess::Session.new
+        shared_session.start
+        described_class.instance_variable_set(:@session, Concurrent::AtomicReference.new(shared_session))
+      end
+
+      dedicated = described_class.create_dedicated_session(name: 'test')
+      expect(dedicated).to be(shared_session)
+    end
+
     it 'uses create_session_with_failover and starts the session in non-lite mode' do
       stub_const('Legion::Transport::TYPE', 'bunny')
       fake_session = instance_double('Bunny::Session', start: nil)
