@@ -234,6 +234,15 @@ module Legion
           nil
         end
 
+        def create_dedicated_session(name: 'legion-dedicated')
+          return Legion::Transport::InProcess::Session.new if lite_mode?
+
+          conn_settings = build_bunny_opts(connection_name: name)
+          session = connector.new(**conn_settings)
+          session.start
+          session
+        end
+
         private
 
         def setup_pool(pool_size:, connection_name:)

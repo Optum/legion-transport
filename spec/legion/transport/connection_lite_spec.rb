@@ -13,4 +13,18 @@ RSpec.describe Legion::Transport::Connection do
       expect(described_class.lite_mode?).to be false
     end
   end
+
+  describe '.create_dedicated_session' do
+    it 'returns an InProcess::Session in lite mode' do
+      stub_const('Legion::Transport::TYPE', 'local')
+      session = described_class.create_dedicated_session(name: 'test')
+      expect(session).to be_a(Legion::Transport::InProcess::Session)
+    end
+
+    it 'responds to create_channel in lite mode' do
+      stub_const('Legion::Transport::TYPE', 'local')
+      session = described_class.create_dedicated_session(name: 'test')
+      expect(session).to respond_to(:create_channel)
+    end
+  end
 end

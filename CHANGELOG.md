@@ -1,5 +1,10 @@
 # Legion::Transport ChangeLog
 
+## [1.4.5] - 2026-03-27
+
+### Added
+- `Connection.create_dedicated_session` class method for creating isolated AMQP connections separate from the main transport session; returns an `InProcess::Session` in lite mode
+
 ## [1.4.4] - 2026-03-26
 
 ### Removed
