@@ -11,11 +11,17 @@ RSpec.describe Legion::Transport::Connection do
     end
 
     it 'returns false when TYPE is bunny' do
+      stub_const('Legion::Transport::TYPE', 'bunny')
       expect(described_class.lite_mode?).to be false
     end
   end
 
   describe '.create_dedicated_session' do
+    after do
+      described_class.instance_variable_set(:@session, nil)
+      described_class.instance_variable_set(:@channel_thread, nil)
+    end
+
     it 'returns an InProcess::Session in lite mode' do
       stub_const('Legion::Transport::TYPE', 'local')
       session = described_class.create_dedicated_session(name: 'test')
