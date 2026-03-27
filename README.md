@@ -47,7 +47,7 @@ Legion::Transport::Connection.session  # => Bunny::Session
 
 ### Dedicated Sessions
 
-`Connection.create_dedicated_session` creates an isolated AMQP connection separate from the shared main session. Useful for consumers that need their own connection (e.g., a dedicated log channel or a build pipeline connection). In lite mode it returns a started `InProcess::Session`.
+`Connection.create_dedicated_session` creates a separate AMQP connection independent of the shared main session. Useful for consumers that need their own connection (e.g., a dedicated log channel or a build pipeline connection). In lite mode it returns the shared `InProcess::Session` (in-process transport is process-global; true session isolation is not available in lite mode).
 
 ```ruby
 session = Legion::Transport::Connection.create_dedicated_session(name: 'my-log-session')
@@ -161,7 +161,7 @@ Configuration is managed through `legion-settings` with environment variable ove
     "user": "guest",
     "password": "guest",
     "host": "127.0.0.1",
-    "port": "5672",
+    "port": 5672,
     "vhost": "/",
     "recovery_attempts": 10,
     "logger_level": "info",

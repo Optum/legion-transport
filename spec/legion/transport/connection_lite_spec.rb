@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'legion/transport/in_process'
 
 RSpec.describe Legion::Transport::Connection do
   describe '.lite_mode?' do

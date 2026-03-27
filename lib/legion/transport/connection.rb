@@ -235,11 +235,20 @@ module Legion
         end
 
         def create_dedicated_session(name: 'legion-dedicated')
-          return Legion::Transport::InProcess::Session.new.start if lite_mode?
+          if lite_mode?
+            # In-process transport is process-global; return the shared session so
+            # that callers do not inadvertently reset all queues via Session#close.
+            shared = session
+            return shared if shared&.open?
 
-          session = create_session_with_failover(connection_name: name)
-          session.start
-          session
+            s = Legion::Transport::InProcess::Session.new
+            s.start
+            return s
+          end
+
+          sess = create_session_with_failover(connection_name: name)
+          sess.start
+          sess
         end
 
         private
