@@ -4,6 +4,7 @@ require 'legion/transport/version'
 require 'legion/settings'
 require 'legion/transport/settings'
 require_relative 'transport/errors'
+require_relative 'transport/routes'
 
 module Legion
   module Transport
@@ -18,6 +19,15 @@ module Legion
     end
 
     class << self
+      def register_routes
+        return unless defined?(Legion::API) && Legion::API.respond_to?(:register_library_routes)
+
+        Legion::API.register_library_routes('transport', Legion::Transport::Routes)
+        Legion::Logging.debug 'Legion::Transport routes registered with API' if defined?(Legion::Logging)
+      rescue StandardError => e
+        Legion::Logging.warn "Legion::Transport route registration failed: #{e.message}" if defined?(Legion::Logging)
+      end
+
       def logger
         return @logger unless @logger.nil?
 

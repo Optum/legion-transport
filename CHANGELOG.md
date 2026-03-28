@@ -1,5 +1,10 @@
 # Legion::Transport ChangeLog
 
+## [1.4.7] - 2026-03-28
+
+### Added
+- `Legion::Transport::Routes` self-registering Sinatra route module (`lib/legion/transport/routes.rb`): extracts all `/api/transport/*` route handlers from LegionIO. Self-registers with `Legion::API.register_library_routes('transport', Routes)` during boot. Includes fallback helpers for standalone mounting.
+
 ## [1.4.6] - 2026-03-27
 
 ### Fixed
