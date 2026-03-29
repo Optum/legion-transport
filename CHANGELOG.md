@@ -1,5 +1,18 @@
 # Legion::Transport ChangeLog
 
+## [1.4.8] - 2026-03-28
+
+### Added
+- `Legion::Transport::Kafka` optional adapter for event streaming alongside RabbitMQ (closes #4)
+- `Kafka::Producer` — thread-safe rdkafka producer with lazy init, JSON auto-encoding, partition key, header forwarding, and delivery confirmation
+- `Kafka::Consumer` — subscribe to topics with consumer group semantics; replay from offset or timestamp via isolated replay group
+- `Kafka::Admin` — idempotent `ensure_topic` (create or confirm-exists) via rdkafka admin client
+- `Kafka::IncomingMessage` — clean wrapper over raw rdkafka messages exposing topic/partition/offset/key/headers/timestamp/payload with `decoded_payload` JSON parse helper
+- `Kafka::DEFAULTS` — full default config hash covering producer, consumer, admin, and security (SASL/SSL) settings; all values env-var overridable under `transport.kafka.*` namespace
+- `Legion::Transport::Settings.kafka` — merges Kafka defaults into the transport settings hash; `transport.kafka.enabled: false` by default
+- Feature-flagged: Kafka is opt-in (`transport.kafka.enabled: true` or `ENV['transport.kafka.enabled'] = 'true'`); `rdkafka` gem is a soft optional dependency not listed in gemspec
+- 56 new specs covering the Kafka module, Producer, IncomingMessage, and DEFAULTS (all rdkafka interaction mocked — no broker required)
+
 ## [1.4.7] - 2026-03-28
 
 ### Added

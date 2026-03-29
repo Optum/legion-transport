@@ -69,4 +69,5 @@ module Legion
   require_relative 'transport/tenant_provisioner'
   require_relative 'transport/tenant_quota'
   require_relative 'transport/helper'
+  require_relative 'transport/kafka'
 end
