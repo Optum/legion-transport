@@ -97,6 +97,15 @@ module Legion
         }
       end
 
+      def self.kafka
+        require_relative 'kafka/defaults'
+        Legion::Transport::Kafka::DEFAULTS.dup.tap do |k|
+          k[:enabled] = ENV['transport.kafka.enabled'] == 'true'
+          k[:brokers] = ENV['transport.kafka.brokers'].split(',').map(&:strip) if ENV['transport.kafka.brokers']
+          k[:consumer_group] = ENV['transport.kafka.consumer_group'] if ENV['transport.kafka.consumer_group']
+        end
+      end
+
       def self.default
         cluster_csv = ENV.fetch('transport.cluster_nodes', '')
         {
@@ -110,6 +119,7 @@ module Legion
           connection:           connection,
           channel:              channel,
           tenant_topology:      tenant_topology,
+          kafka:                kafka,
           cluster_nodes:        cluster_csv.empty? ? [] : cluster_csv.split(',').map(&:strip),
           connection_pool_size: (ENV['transport.connection_pool_size'] || 1).to_i,
           max_payload_bytes:    (ENV['transport.max_payload_bytes'] || 1_048_576).to_i,
