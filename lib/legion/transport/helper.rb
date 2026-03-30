@@ -93,8 +93,13 @@ module Legion
       def transport_publish(routing_key:, payload: {}, **opts)
         return false unless transport_connected?
 
-        ttl = opts.key?(:ttl) ? opts.delete(:ttl) : transport_default_ttl
-        opts[:expiration] = ttl.to_s if ttl
+        if opts.key?(:ttl)
+          ttl = opts.delete(:ttl)
+          opts[:expiration] = ttl.to_s if ttl
+        elsif !opts.key?(:expiration)
+          ttl = transport_default_ttl
+          opts[:expiration] = ttl.to_s if ttl
+        end
         encoded = payload.is_a?(String) ? payload : Legion::JSON.dump(payload)
         exchange = default_exchange.cached_instance || default_exchange.new
         exchange.publish(encoded, routing_key: routing_key, **opts)

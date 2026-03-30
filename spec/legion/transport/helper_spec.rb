@@ -181,6 +181,16 @@ RSpec.describe Legion::Transport::Helper do
       subject.transport_publish(routing_key: 'test.run', ttl: nil)
     end
 
+    it 'passes through an explicit expiration: without overwriting it' do
+      allow(subject).to receive(:transport_default_ttl).and_return(30_000)
+      expect(exchange_instance).to receive(:publish).with(
+        '{}',
+        routing_key: 'test.run',
+        expiration:  '99999'
+      )
+      subject.transport_publish(routing_key: 'test.run', expiration: '99999')
+    end
+
     it 'forwards extra options to exchange publish' do
       expect(exchange_instance).to receive(:publish).with(
         '{}',
