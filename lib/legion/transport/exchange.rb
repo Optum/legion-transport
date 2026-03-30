@@ -66,7 +66,7 @@ module Legion
       end
 
       def exchange_name
-        self.class.ancestors.first.to_s.split('::')[2].downcase
+        derive_segments.join('.')
       end
 
       def exchange_options

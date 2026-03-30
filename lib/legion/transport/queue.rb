@@ -46,7 +46,7 @@ module Legion
       end
 
       def dlx_exchange_name
-        "#{self.class.ancestors.first.to_s.split('::')[2].downcase}.dlx"
+        "#{derive_segments.join('.')}.dlx"
       end
 
       def ensure_dlx(merged_options)
@@ -62,13 +62,7 @@ module Legion
       end
 
       def queue_name
-        ancestor = self.class.ancestors.first.to_s.split('::')
-        name = if ancestor[5].scan(/[A-Z]/).length > 1
-                 ancestor[5].gsub!(/(.)([A-Z])/, '\1_\2').downcase!
-               else
-                 ancestor[5].downcase!
-               end
-        "#{ancestor[2].downcase}.#{name}"
+        "#{derive_segments.join('.')}.#{derive_leaf}"
       end
 
       def delete(options = {})
