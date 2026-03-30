@@ -5,8 +5,6 @@ require 'spec_helper'
 RSpec.describe 'Namespace derivation' do
   def stub_queue_class(full_name)
     Class.new(Legion::Transport::Queue) do
-      define_method(:self_name) { full_name }
-
       define_singleton_method(:ancestors) { [self, Legion::Transport::Queue] }
       define_singleton_method(:to_s) { full_name }
     end

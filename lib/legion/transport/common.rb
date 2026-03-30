@@ -85,8 +85,12 @@ module Legion
            .downcase
       end
 
+      def namespace_parts
+        self.class.ancestors.first.to_s.split('::')
+      end
+
       def derive_extension_parts
-        parts = self.class.ancestors.first.to_s.split('::')
+        parts = namespace_parts
         ext_idx = parts.index('Extensions')
         return [parts.last] unless ext_idx
 
@@ -104,8 +108,7 @@ module Legion
       end
 
       def derive_leaf
-        parts = self.class.ancestors.first.to_s.split('::')
-        camelize_to_snake(parts.last)
+        camelize_to_snake(namespace_parts.last)
       end
     end
   end
