@@ -24,6 +24,7 @@ RSpec.describe Legion::Transport::Connection do
   after do
     described_class.instance_variable_set(:@pool, nil)
     described_class.instance_variable_set(:@session, nil)
+    described_class.instance_variable_set(:@log_channel, nil)
   end
 
   describe 'connection pool activation' do
