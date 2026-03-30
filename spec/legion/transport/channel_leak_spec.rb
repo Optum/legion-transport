@@ -22,28 +22,31 @@ RSpec.describe 'Channel leak prevention' do
 
   describe 'Connection.setup' do
     it 'closes the QoS channel after applying basic_qos' do
-      # Shut down so we can observe a fresh Connection.setup cycle
+      # Shut down so we can observe a fresh Connection.setup cycle through
+      # the session-creation branch (not the session.open? fast path).
       Legion::Transport::Connection.shutdown
 
-      # Count open channels before calling setup
+      # Intercept create_session_with_failover so we control the session object
+      # and can count channels after setup runs.
       raw_session = Legion::Transport::Connection.send(:create_session_with_failover, connection_name: 'test-qos')
       raw_session.start
-      open_before = raw_session.instance_variable_get(:@channels)&.count { |_k, v| v&.open? } || 0
 
-      # Wire the session in so Connection.setup uses it (skips the create_session_with_failover branch)
-      Legion::Transport::Connection.instance_variable_set(
-        :@session, Concurrent::AtomicReference.new(raw_session)
-      )
+      allow(Legion::Transport::Connection).to receive(:create_session_with_failover)
+        .and_return(raw_session)
+
+      # Ensure @session is nil so setup takes the creation branch (creates QoS channel)
+      Legion::Transport::Connection.instance_variable_set(:@session, nil)
       Legion::Transport::Connection.instance_variable_set(
         :@channel_thread, Concurrent::ThreadLocalVar.new(nil)
       )
 
-      # setup will call session.open? (true) → skip creation, apply QoS, close qos_channel, create log_channel
+      # setup will create_session_with_failover → start → create QoS channel → apply_qos_and_close
+      # After that only the log_channel should remain open.
       Legion::Transport::Connection.setup
 
-      # After setup the only extra open channel should be the log_channel (+1 vs before)
       open_after = raw_session.instance_variable_get(:@channels)&.count { |_k, v| v&.open? } || 0
-      expect(open_after).to eq(open_before + 1)
+      # Only 1 open channel (log_channel) — QoS channel must have been closed.
+      expect(open_after).to eq(1)
 
       # Restore a clean connection for subsequent tests
       Legion::Transport::Connection.shutdown

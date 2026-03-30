@@ -21,8 +21,11 @@ module Legion
 
       def recreate_queue(queue)
         Legion::Transport.logger.warn "Queue:#{queue} exists with wrong parameters, deleting and creating"
-        queue = ::Bunny::Queue.new(Legion::Transport::Connection.channel, queue, no_declare: true, passive: true)
-        queue.delete
+        tmp_channel = Legion::Transport::Connection.channel
+        tmp_queue = ::Bunny::Queue.new(tmp_channel, queue, no_declare: true, passive: true)
+        tmp_queue.delete
+      ensure
+        tmp_channel&.close rescue nil # rubocop:disable Style/RescueModifier
       end
 
       def default_options

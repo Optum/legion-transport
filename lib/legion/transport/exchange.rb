@@ -95,6 +95,8 @@ module Legion
         error_channel&.close rescue nil # rubocop:disable Style/RescueModifier
         @channel = Legion::Transport::Connection.channel
         raise e unless @channel.open?
+
+        @channel
       end
     end
   end
