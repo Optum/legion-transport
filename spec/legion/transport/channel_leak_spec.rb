@@ -22,31 +22,31 @@ RSpec.describe 'Channel leak prevention' do
 
   describe 'Connection.setup' do
     it 'closes the QoS channel after applying basic_qos' do
-      # Shut down and rebuild so we can observe the QoS channel lifecycle
+      # Shut down so we can observe a fresh Connection.setup cycle
       Legion::Transport::Connection.shutdown
 
-      session = Legion::Transport::Connection.send(:create_session_with_failover, connection_name: 'test-qos')
-      session.start
+      # Count open channels before calling setup
+      raw_session = Legion::Transport::Connection.send(:create_session_with_failover, connection_name: 'test-qos')
+      raw_session.start
+      open_before = raw_session.instance_variable_get(:@channels)&.count { |_k, v| v&.open? } || 0
+
+      # Wire the session in so Connection.setup uses it (skips the create_session_with_failover branch)
       Legion::Transport::Connection.instance_variable_set(
-        :@session, Concurrent::AtomicReference.new(session)
+        :@session, Concurrent::AtomicReference.new(raw_session)
       )
       Legion::Transport::Connection.instance_variable_set(
         :@channel_thread, Concurrent::ThreadLocalVar.new(nil)
       )
 
-      channels_before = session.instance_variable_get(:@channels)&.size || 0
+      # setup will call session.open? (true) → skip creation, apply QoS, close qos_channel, create log_channel
+      Legion::Transport::Connection.setup
 
-      # Apply QoS via a channel and close it — net channel count should be +1 (log_channel only)
-      qos_ch = session.create_channel(nil, 1)
-      qos_ch.basic_qos(2, true)
-      qos_ch.close
+      # After setup the only extra open channel should be the log_channel (+1 vs before)
+      open_after = raw_session.instance_variable_get(:@channels)&.count { |_k, v| v&.open? } || 0
+      expect(open_after).to eq(open_before + 1)
 
-      channels_after_qos = session.instance_variable_get(:@channels)&.count { |_k, v| v&.open? } || 0
-      expect(channels_after_qos).to eq(channels_before)
-
-      session.close
-      # Restore a working connection for after block
-      Legion::Transport::Connection.instance_variable_set(:@session, nil)
+      # Restore a clean connection for subsequent tests
+      Legion::Transport::Connection.shutdown
       Legion::Transport::Connection.setup
     end
 
@@ -87,27 +87,29 @@ RSpec.describe 'Channel leak prevention' do
   end
 
   describe 'Exchange#channel error recovery' do
-    it 'closes old channel before replacing on ChannelLevelException' do
+    it 'closes the error channel before replacing on ChannelLevelException' do
       exchange = Legion::Transport::Exchange.new('test_channel_recovery_leak')
       old_channel = exchange.instance_variable_get(:@channel)
       expect(old_channel).to be_open
 
-      # Clear @channel so next call goes through Connection.channel
+      # Clear @channel so the next call goes through the ||= assignment path
       exchange.instance_variable_set(:@channel, nil)
 
-      # First Connection.channel call raises, simulating a broken channel
+      # bad_channel simulates the broken channel referenced in the exception
       bad_channel = Legion::Transport::Connection.session.create_channel
       good_channel = Legion::Transport::Connection.session.create_channel
 
       call_count = 0
       allow(Legion::Transport::Connection).to receive(:channel) do
         call_count += 1
+        # Raise with bad_channel as the exception's channel — production code
+        # now uses e.channel to close it even when @channel is still nil
         raise Bunny::ChannelLevelException.new('test error', bad_channel, 406) if call_count == 1
 
         good_channel
       end
 
-      # The rescue path should close the bad channel and replace with a good one
+      # The rescue path should close bad_channel (via e.channel) and replace with good_channel
       begin
         exchange.channel
       rescue Bunny::ChannelLevelException
@@ -117,6 +119,8 @@ RSpec.describe 'Channel leak prevention' do
       recovered_channel = exchange.instance_variable_get(:@channel)
       expect(recovered_channel).to eq(good_channel)
       expect(recovered_channel).to be_open
+      # The channel from the exception must have been closed by the rescue
+      expect(bad_channel).not_to be_open
     ensure
       old_channel&.close rescue nil # rubocop:disable Style/RescueModifier
       bad_channel&.close rescue nil # rubocop:disable Style/RescueModifier
@@ -141,22 +145,37 @@ RSpec.describe 'Channel leak prevention' do
 
   describe 'Queue retry path' do
     it 'closes old channel when PreconditionFailed triggers retry' do
-      # Create a queue with known params first
-      q = Legion::Transport::Queue.new('test_queue_leak_check')
-      original_channel = q.instance_variable_get(:@channel)
-      expect(original_channel).to be_open
+      # We stub Bunny::Queue#initialize to raise PreconditionFailed on the first call
+      # so that we exercise the rescue/retry path without needing a real parameter mismatch.
+      original_ch = nil
+      retry_ch    = nil
+      call_count  = 0
 
-      q.delete
-      original_channel.close rescue nil # rubocop:disable Style/RescueModifier
+      allow_any_instance_of(Bunny::Queue).to receive(:initialize).and_wrap_original do |m, *args, **kwargs, &blk|
+        call_count += 1
+        if call_count == 1
+          # Capture the channel that was assigned before the raise
+          original_ch = args[0]
+          raise Bunny::PreconditionFailed.new('test mismatch', original_ch, 406)
+        end
 
-      # Now create with different params to trigger PreconditionFailed + retry
-      # The retry path should close the old channel before getting a new one
-      q2 = Legion::Transport::Queue.new('test_queue_leak_check')
-      new_channel = q2.instance_variable_get(:@channel)
-      expect(new_channel).to be_a(Bunny::Channel)
-      expect(new_channel).to be_open
-      q2.delete
-      new_channel.close rescue nil # rubocop:disable Style/RescueModifier
+        retry_ch = args[0]
+        m.call(*args, **kwargs, &blk)
+      end
+
+      q = nil
+      begin
+        q = Legion::Transport::Queue.new('test_queue_precond_leak')
+      rescue StandardError
+        nil # may raise if retry also fails; we only care about channel state
+      end
+
+      # The rescue should have closed original_ch before getting a new channel
+      expect(original_ch).not_to be_nil
+      expect(original_ch).not_to be_open
+    ensure
+      q&.delete rescue nil # rubocop:disable Style/RescueModifier
+      retry_ch&.close rescue nil # rubocop:disable Style/RescueModifier
     end
   end
 end

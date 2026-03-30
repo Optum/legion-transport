@@ -55,8 +55,7 @@ module Legion
             @channel_thread = Concurrent::ThreadLocalVar.new(nil)
             session.start
             qos_channel = session.create_channel(nil, settings[:channel][:session_worker_pool_size])
-            qos_channel.basic_qos(settings[:prefetch], true)
-            qos_channel.close
+            apply_qos_and_close(qos_channel)
             Legion::Settings[:transport][:connected] = true
             if defined?(Legion::Logging)
               host  = settings.dig(:connection, :host) || '127.0.0.1'
@@ -262,8 +261,23 @@ module Legion
 
         private
 
+        def apply_qos_and_close(qos_channel)
+          qos_channel.basic_qos(settings[:prefetch], true)
+        ensure
+          safe_close_channel(qos_channel)
+        end
+
+        def safe_close_channel(chan)
+          chan&.close if chan&.open?
+        rescue StandardError
+          # suppress close errors to avoid masking setup errors
+        end
+
         def reset_log_channel
           @log_channel&.close if @log_channel&.open?
+        rescue StandardError => e
+          Legion::Logging.debug("Connection#reset_log_channel close failed: #{e.message}") if defined?(Legion::Logging)
+        ensure
           @log_channel = session.create_channel
           @log_channel.prefetch(1)
         end
@@ -276,8 +290,7 @@ module Legion
           primary = @pool.checkout
           primary.start
           qos_channel = primary.create_channel(nil, settings[:channel][:session_worker_pool_size])
-          qos_channel.basic_qos(settings[:prefetch], true)
-          qos_channel.close
+          apply_qos_and_close(qos_channel)
           @pool.checkin(primary)
           @session ||= Concurrent::AtomicReference.new(primary)
           @channel_thread = Concurrent::ThreadLocalVar.new(nil)

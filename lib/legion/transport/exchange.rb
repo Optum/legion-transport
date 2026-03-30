@@ -89,7 +89,10 @@ module Legion
       def channel
         @channel ||= @explicit_channel || Legion::Transport::Connection.channel
       rescue Legion::Transport::CONNECTOR::ChannelLevelException => e
-        @channel&.close rescue nil # rubocop:disable Style/RescueModifier
+        # Prefer closing the channel from the exception (available even when @channel is nil
+        # because the exception was raised before assignment completed).
+        error_channel = e.respond_to?(:channel) ? e.channel : @channel
+        error_channel&.close rescue nil # rubocop:disable Style/RescueModifier
         @channel = Legion::Transport::Connection.channel
         raise e unless @channel.open?
       end
