@@ -86,7 +86,7 @@ module Legion
       end
 
       def namespace_parts
-        self.class.ancestors.first.to_s.split('::')
+        @namespace_parts ||= self.class.ancestors.first.to_s.split('::')
       end
 
       def derive_extension_parts
