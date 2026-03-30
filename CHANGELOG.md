@@ -1,5 +1,14 @@
 # Legion::Transport ChangeLog
 
+## [Unreleased]
+
+### Added
+- Layered TTL resolution in Helper (`transport_default_ttl` — LEX-overridable, reads Settings)
+- `transport_session_open?` / `transport_channel_open?` / `transport_lite_mode?` — real connection status
+- `transport_channel` — convenience accessor for the current thread's AMQP channel
+- `transport_spool_count` — pending spooled message count for degraded-mode awareness
+- `transport_publish` — convenience method to publish to default exchange with auto TTL and JSON encoding
+
 ## [1.4.8] - 2026-03-28
 
 ### Added
