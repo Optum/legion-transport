@@ -53,7 +53,11 @@ module Legion
       # --- Status ---
 
       def transport_connected?
-        defined?(Legion::Settings) && Legion::Settings[:transport][:connected]
+        return false unless defined?(Legion::Settings)
+
+        !!Legion::Settings.dig(:transport, :connected)
+      rescue StandardError
+        false
       end
 
       def transport_session_open?
@@ -89,11 +93,14 @@ module Legion
       def transport_publish(routing_key:, payload: {}, **opts)
         return false unless transport_connected?
 
-        ttl = opts.delete(:ttl) || transport_default_ttl
+        ttl = opts.key?(:ttl) ? opts.delete(:ttl) : transport_default_ttl
         opts[:expiration] = ttl.to_s if ttl
         encoded = payload.is_a?(String) ? payload : Legion::JSON.dump(payload)
-        default_exchange.new.publish(encoded, routing_key: routing_key, **opts)
+        exchange = default_exchange.cached_instance || default_exchange.new
+        exchange.publish(encoded, routing_key: routing_key, **opts)
         true
+      rescue StandardError
+        false
       end
     end
   end

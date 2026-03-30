@@ -42,12 +42,17 @@ RSpec.describe Legion::Transport::Helper do
 
   describe '#transport_connected?' do
     it 'returns true when transport is connected' do
-      allow(Legion::Settings).to receive(:[]).with(:transport).and_return({ connected: true })
+      allow(Legion::Settings).to receive(:dig).with(:transport, :connected).and_return(true)
       expect(subject.transport_connected?).to be true
     end
 
     it 'returns false when transport is not connected' do
-      allow(Legion::Settings).to receive(:[]).with(:transport).and_return({ connected: false })
+      allow(Legion::Settings).to receive(:dig).with(:transport, :connected).and_return(false)
+      expect(subject.transport_connected?).to be false
+    end
+
+    it 'returns false when settings raises' do
+      allow(Legion::Settings).to receive(:dig).and_raise(StandardError)
       expect(subject.transport_connected?).to be false
     end
   end
@@ -105,7 +110,7 @@ RSpec.describe Legion::Transport::Helper do
 
   describe '#transport_publish' do
     let(:exchange_instance) { instance_double(Legion::Transport::Exchange) }
-    let(:exchange_class) { class_double(Legion::Transport::Exchange, new: exchange_instance) }
+    let(:exchange_class) { class_double(Legion::Transport::Exchange, new: exchange_instance, cached_instance: exchange_instance) }
 
     before do
       allow(subject).to receive(:transport_connected?).and_return(true)
@@ -160,6 +165,20 @@ RSpec.describe Legion::Transport::Helper do
     it 'returns false when transport is not connected' do
       allow(subject).to receive(:transport_connected?).and_return(false)
       expect(subject.transport_publish(routing_key: 'test.run')).to be false
+    end
+
+    it 'returns false when publish raises' do
+      allow(exchange_instance).to receive(:publish).and_raise(StandardError, 'connection closed')
+      expect(subject.transport_publish(routing_key: 'test.run')).to be false
+    end
+
+    it 'treats explicit ttl: nil as no expiration (does not fall back to default TTL)' do
+      allow(subject).to receive(:transport_default_ttl).and_return(30_000)
+      expect(exchange_instance).to receive(:publish).with(
+        '{}',
+        routing_key: 'test.run'
+      )
+      subject.transport_publish(routing_key: 'test.run', ttl: nil)
     end
 
     it 'forwards extra options to exchange publish' do
