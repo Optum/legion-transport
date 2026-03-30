@@ -7,12 +7,12 @@ RSpec.describe 'Queue DLX consolidation' do
   let(:queue_class) do
     Class.new(Legion::Transport::Queue) do
       def self.ancestors
-        # Simulate a queue under Legion::Extensions::Knowledge::Queues::Chunker
+        # Simulate a queue under Legion::Extensions::Knowledge::Transport::Queues::Chunker
         [self, Legion::Transport::Queue]
       end
 
       def self.to_s
-        'Legion::Extensions::Knowledge::Queues::Chunker'
+        'Legion::Extensions::Knowledge::Transport::Queues::Chunker'
       end
     end
   end

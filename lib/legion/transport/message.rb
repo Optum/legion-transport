@@ -130,8 +130,8 @@ module Legion
       end
 
       def exchange_name
-        lex = self.class.ancestors.first.to_s.split('::')[2].downcase
-        "Legion::Extensions::#{lex.capitalize}::Transport::Exchanges::#{lex.capitalize}"
+        parts = derive_extension_parts
+        "Legion::Extensions::#{parts.join('::')}::Transport::Exchanges::#{parts.first}"
       end
 
       def exchange
