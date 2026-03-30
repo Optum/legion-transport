@@ -9,6 +9,16 @@
 - `transport_spool_count` — pending spooled message count for degraded-mode awareness
 - `transport_publish` — convenience method to publish to default exchange with auto TTL and JSON encoding
 
+## [1.4.10] - 2026-03-30
+
+### Fixed
+- `Queue#queue_name`, `Queue#dlx_exchange_name`, `Exchange#exchange_name`, and `Message#exchange_name` now use boundary-walking namespace derivation instead of hard-coded positional indices, fixing broken name generation for nested sub-module extensions (closes #8)
+
+### Added
+- `Common::NAMESPACE_BOUNDARIES` constant defining module names that delimit extension segments from transport internals
+- `Common#derive_segments` / `Common#derive_extension_parts` / `Common#derive_leaf` private helpers for namespace-aware name derivation
+- `Common#camelize_to_snake` private helper for CamelCase to snake_case conversion with acronym support
+
 ## [1.4.8] - 2026-03-28
 
 ### Added
