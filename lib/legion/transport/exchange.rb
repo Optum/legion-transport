@@ -42,7 +42,8 @@ module Legion
         raise unless @retries.nil?
 
         @retries = 1
-        @channel&.close rescue nil # rubocop:disable Style/RescueModifier
+        # Only close the channel if it was not explicitly provided by the caller.
+        @channel&.close rescue nil if @explicit_channel.nil? || @channel != @explicit_channel # rubocop:disable Style/RescueModifier
         delete_exchange(exchange)
         retry
       end

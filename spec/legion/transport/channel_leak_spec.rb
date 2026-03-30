@@ -142,6 +142,7 @@ RSpec.describe 'Channel leak prevention' do
       expect(new_channel).to be_a(Bunny::Channel)
       expect(new_channel).to be_open
     ensure
+      old_channel&.close rescue nil # rubocop:disable Style/RescueModifier
       exchange.instance_variable_get(:@channel)&.close rescue nil # rubocop:disable Style/RescueModifier
     end
   end
