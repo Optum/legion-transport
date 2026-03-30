@@ -14,6 +14,7 @@ module Legion
       rescue Legion::Transport::CONNECTOR::PreconditionFailed
         retries.zero? ? retries = 1 : raise
         recreate_queue(queue)
+        @channel&.close rescue nil # rubocop:disable Style/RescueModifier
         @channel = Legion::Transport::Connection.channel
         retry
       end

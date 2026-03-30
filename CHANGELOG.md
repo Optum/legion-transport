@@ -9,6 +9,15 @@
 - `transport_spool_count` — pending spooled message count for degraded-mode awareness
 - `transport_publish` — convenience method to publish to default exchange with auto TTL and JSON encoding
 
+## [1.4.11] - 2026-03-30
+
+### Fixed
+- Close throwaway QoS channel after `basic_qos` in `Connection.setup` and `setup_pool` — previously leaked on every setup/reconnect cycle (closes #10)
+- Close old `@log_channel` before replacing in `Connection.setup` and `log_channel` accessor — previously leaked on every reconnect
+- Close old `@channel` before retry in `Exchange#initialize` rescue path — previously leaked on `PreconditionFailed`/`ChannelAlreadyClosed`
+- Close old `@channel` before replacing in `Exchange#channel` rescue path — previously leaked on `ChannelLevelException`
+- Close old `@channel` before replacing in `Queue#initialize` rescue path — previously leaked on `PreconditionFailed`
+
 ## [1.4.10] - 2026-03-30
 
 ### Fixed

@@ -54,8 +54,9 @@ module Legion
             )
             @channel_thread = Concurrent::ThreadLocalVar.new(nil)
             session.start
-            session.create_channel(nil, settings[:channel][:session_worker_pool_size])
-                   .basic_qos(settings[:prefetch], true)
+            qos_channel = session.create_channel(nil, settings[:channel][:session_worker_pool_size])
+            qos_channel.basic_qos(settings[:prefetch], true)
+            qos_channel.close
             Legion::Settings[:transport][:connected] = true
             if defined?(Legion::Logging)
               host  = settings.dig(:connection, :host) || '127.0.0.1'
@@ -67,8 +68,7 @@ module Legion
           end
 
           register_session_callbacks
-          @log_channel = session.create_channel
-          @log_channel.prefetch(1)
+          reset_log_channel
           apply_quorum_policy_if_enabled
           true
         end
@@ -225,6 +225,7 @@ module Legion
           return @log_channel if @log_channel&.open?
 
           if session&.open?
+            @log_channel&.close rescue nil # rubocop:disable Style/RescueModifier
             @log_channel = session.create_channel
             @log_channel.prefetch(1)
             @log_channel
@@ -261,6 +262,12 @@ module Legion
 
         private
 
+        def reset_log_channel
+          @log_channel&.close if @log_channel&.open?
+          @log_channel = session.create_channel
+          @log_channel.prefetch(1)
+        end
+
         def setup_pool(pool_size:, connection_name:)
           require 'legion/transport/helpers/pool'
           @pool = Legion::Transport::Helpers::Pool.new(size: pool_size) do
@@ -268,8 +275,9 @@ module Legion
           end
           primary = @pool.checkout
           primary.start
-          primary.create_channel(nil, settings[:channel][:session_worker_pool_size])
-                 .basic_qos(settings[:prefetch], true)
+          qos_channel = primary.create_channel(nil, settings[:channel][:session_worker_pool_size])
+          qos_channel.basic_qos(settings[:prefetch], true)
+          qos_channel.close
           @pool.checkin(primary)
           @session ||= Concurrent::AtomicReference.new(primary)
           @channel_thread = Concurrent::ThreadLocalVar.new(nil)

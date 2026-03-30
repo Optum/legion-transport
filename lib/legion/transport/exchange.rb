@@ -42,6 +42,7 @@ module Legion
         raise unless @retries.nil?
 
         @retries = 1
+        @channel&.close rescue nil # rubocop:disable Style/RescueModifier
         delete_exchange(exchange)
         retry
       end
@@ -88,6 +89,7 @@ module Legion
       def channel
         @channel ||= @explicit_channel || Legion::Transport::Connection.channel
       rescue Legion::Transport::CONNECTOR::ChannelLevelException => e
+        @channel&.close rescue nil # rubocop:disable Style/RescueModifier
         @channel = Legion::Transport::Connection.channel
         raise e unless @channel.open?
       end
