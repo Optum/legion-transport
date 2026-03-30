@@ -3,6 +3,19 @@
 module Legion
   module Transport
     module Helper
+      # --- TTL Resolution ---
+      # Override in your LEX to set a custom default message TTL for the extension.
+      # Resolution chain: per-call :ttl option -> LEX override -> Settings -> nil (no expiration)
+      def transport_default_ttl
+        return nil unless defined?(Legion::Settings)
+
+        Legion::Settings.dig(:transport, :messages, :ttl)
+      rescue StandardError
+        nil
+      end
+
+      # --- Namespace / Wiring ---
+
       def transport_path
         @transport_path ||= "#{full_path}/transport"
       end
@@ -37,8 +50,50 @@ module Legion
         @default_exchange = transport_class::Exchanges.const_get(lex_const, false)
       end
 
+      # --- Status ---
+
       def transport_connected?
         defined?(Legion::Settings) && Legion::Settings[:transport][:connected]
+      end
+
+      def transport_session_open?
+        Legion::Transport::Connection.session_open?
+      rescue StandardError
+        false
+      end
+
+      def transport_channel_open?
+        Legion::Transport::Connection.channel_open?
+      rescue StandardError
+        false
+      end
+
+      def transport_lite_mode?
+        Legion::Transport::Connection.lite_mode?
+      end
+
+      # --- Resource Info ---
+
+      def transport_channel
+        Legion::Transport::Connection.channel
+      end
+
+      def transport_spool_count
+        Legion::Transport::Spool.count
+      rescue StandardError
+        0
+      end
+
+      # --- Publish Convenience ---
+
+      def transport_publish(routing_key:, payload: {}, **opts)
+        return false unless transport_connected?
+
+        ttl = opts.delete(:ttl) || transport_default_ttl
+        opts[:expiration] = ttl.to_s if ttl
+        encoded = payload.is_a?(String) ? payload : Legion::JSON.dump(payload)
+        default_exchange.new.publish(encoded, routing_key: routing_key, **opts)
+        true
       end
     end
   end
