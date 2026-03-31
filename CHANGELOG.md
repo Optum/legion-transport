@@ -9,6 +9,11 @@
 - `transport_spool_count` — pending spooled message count for degraded-mode awareness
 - `transport_publish` — convenience method to publish to default exchange with auto TTL and JSON encoding
 
+## [1.4.12] - 2026-03-30
+
+### Fixed
+- `Transport.logger` now delegates to `Legion::Logging` when it is defined and responds to `:warn`, falling back to a stdlib `::Logger` only when Legion::Logging is unavailable
+
 ## [1.4.11] - 2026-03-30
 
 ### Fixed

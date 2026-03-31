@@ -29,6 +29,8 @@ module Legion
       end
 
       def logger
+        return Legion::Logging if defined?(Legion::Logging) && Legion::Logging.respond_to?(:warn)
+
         return @logger unless @logger.nil?
 
         require 'logger'
