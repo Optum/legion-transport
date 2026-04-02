@@ -9,6 +9,21 @@
 - `transport_spool_count` — pending spooled message count for degraded-mode awareness
 - `transport_publish` — convenience method to publish to default exchange with auto TTL and JSON encoding
 
+## [1.4.13] - 2026-04-02
+
+### Added
+- Runtime `legion-logging` dependency for transport logging helpers and exception handling
+- Helper-based logging and `handle_exception` coverage across transport connection, queue, message, spool, Kafka, and tenant internals
+
+### Changed
+- Transport defaults now fall back to `warn` log level unless explicitly overridden
+- Added more `info`-level operational logging for connection lifecycle, pool usage, spool activity, tenant topology, quorum policy, and Kafka actions
+
+### Fixed
+- `Transport.logger` now honors `transport.log_level` while still supporting legacy `transport.logger_level`
+- Session teardown now marks sessions as intentionally closing before close attempts, reducing recovery interference during shutdown
+- Region header injection now skips `Legion::Region.current` lookups when affinity is `any` and no explicit region is configured
+
 ## [1.4.12] - 2026-03-30
 
 ### Fixed
