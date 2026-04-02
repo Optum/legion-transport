@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
 require_relative 'defaults'
 
 module Legion
@@ -9,6 +10,8 @@ module Legion
       # Used internally to ensure topics exist before publishing/subscribing.
       module Admin
         class << self
+          include Legion::Logging::Helper
+
           # Idempotently create a topic. Returns true if the topic was created or
           # already exists, raises AdminError on other failures.
           #
@@ -24,15 +27,19 @@ module Legion
             log_created(topic, partitions)
             true
           rescue ::Rdkafka::RdkafkaError => e
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.kafka.admin.ensure_topic',
+                             topic: topic, partitions: partitions)
             # Error code 36 = TOPIC_ALREADY_EXISTS — not a real error for our purposes.
             return true if e.respond_to?(:code) && e.code == :topic_already_exists
             return true if e.message.to_s.include?('TOPIC_ALREADY_EXISTS') || e.message.to_s.include?('Topic already exists')
 
             raise Legion::Transport::Kafka::AdminError, "ensure_topic(#{topic}) failed: #{e.message}"
           rescue StandardError => e
+            handle_exception(e, level: :error, handled: false, operation: 'transport.kafka.admin.ensure_topic',
+                             topic: topic, partitions: partitions)
             raise Legion::Transport::Kafka::AdminError, "ensure_topic(#{topic}) failed: #{e.message}"
           ensure
-            admin&.close rescue nil # rubocop:disable Style/RescueModifier
+            safely_close_admin(admin)
           end
 
           private
@@ -74,9 +81,13 @@ module Legion
           end
 
           def log_created(topic, partitions)
-            return unless defined?(Legion::Logging)
+            log.info("Kafka topic created topic=#{topic} partitions=#{partitions}")
+          end
 
-            Legion::Logging.info("Kafka topic created topic=#{topic} partitions=#{partitions}")
+          def safely_close_admin(admin)
+            admin&.close
+          rescue StandardError => e
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.kafka.admin.close')
           end
         end
       end

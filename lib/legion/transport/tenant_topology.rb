@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Transport
     module TenantTopology
+      extend Legion::Logging::Helper
+
       SHARED_EXCHANGES = %w[legion.control legion.health legion.audit].freeze
 
       def self.exchange_name(base_name, tenant_id: nil)
@@ -37,7 +41,7 @@ module Legion
 
         Legion::TenantContext.current_tenant_id
       rescue StandardError => e
-        Legion::Logging.debug("TenantTopology#current_tenant_id failed: #{e.message}") if defined?(Legion::Logging)
+        handle_exception(e, level: :warn, handled: true, operation: :tenant_topology_current_tenant_id)
         nil
       end
 
@@ -46,7 +50,7 @@ module Legion
 
         Legion::Settings[:transport] || {}
       rescue StandardError => e
-        Legion::Logging.debug("TenantTopology#transport_settings failed: #{e.message}") if defined?(Legion::Logging)
+        handle_exception(e, level: :warn, handled: true, operation: :tenant_topology_transport_settings)
         {}
       end
     end

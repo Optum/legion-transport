@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
 require_relative 'defaults'
 require_relative 'incoming_message'
 
@@ -11,6 +12,8 @@ module Legion
       # multiple topics and consumer groups can coexist in a single process.
       module Consumer
         class << self
+          include Legion::Logging::Helper
+
           # Subscribe to one or more topics and yield each message to the block.
           # Runs synchronously in the calling thread — wrap in a Thread or actor
           # for background processing.
@@ -46,6 +49,8 @@ module Legion
               consumer.close
             end
           rescue StandardError => e
+            handle_exception(e, level: :error, handled: false, operation: 'transport.kafka.consumer.subscribe',
+                             group: group, topics: topic_list.join(','))
             raise Legion::Transport::Kafka::ConsumerError, "Kafka consumer error: #{e.message}"
           end
 
@@ -87,6 +92,8 @@ module Legion
               consumer.close
             end
           rescue StandardError => e
+            handle_exception(e, level: :error, handled: false, operation: 'transport.kafka.consumer.replay',
+                             topic: topic, replay_group: replay_group)
             raise Legion::Transport::Kafka::ConsumerError, "Kafka replay error on #{topic}: #{e.message}"
           end
 
@@ -146,9 +153,7 @@ module Legion
           def commit_if_needed(consumer, count)
             consumer.commit if (count % commit_interval).zero?
           rescue StandardError => e
-            return unless defined?(Legion::Logging)
-
-            Legion::Logging.warn("Kafka consumer commit failed: #{e.message}")
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.kafka.consumer.commit', count: count)
           end
 
           def seek_consumer(consumer, topic, from_offset:, from_timestamp:)
@@ -160,9 +165,7 @@ module Legion
                                                             0 => resolve_offset(consumer, topic, from_offset: from_offset, from_timestamp: from_timestamp))
             consumer.seek_to(partition)
           rescue StandardError => e
-            return unless defined?(Legion::Logging)
-
-            Legion::Logging.warn("Kafka consumer seek failed: #{e.message}")
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.kafka.consumer.seek', topic: topic)
           end
 
           def resolve_offset(consumer, topic, from_offset:, from_timestamp:)
@@ -174,19 +177,17 @@ module Legion
             )
             result = consumer.offsets_for_times(offsets_for_times)
             result.to_h[topic]&.first&.last || 0
-          rescue StandardError
+          rescue StandardError => e
+            handle_exception(e, level: :debug, handled: true, operation: 'transport.kafka.consumer.resolve_offset',
+                             topic: topic)
             0
           end
 
           def log_subscribe(topics, group)
-            return unless defined?(Legion::Logging)
-
-            Legion::Logging.debug("Kafka subscribed topics=#{topics.join(',')} group=#{group}")
+            log.info("Kafka subscribed topics=#{topics.join(',')} group=#{group}")
           end
 
           def log_replay(topic, group, from_beginning:, from_offset:, from_timestamp:)
-            return unless defined?(Legion::Logging)
-
             desc = if from_offset
                      "offset=#{from_offset}"
                    elsif from_timestamp
@@ -196,7 +197,7 @@ module Legion
                    else
                      'latest'
                    end
-            Legion::Logging.info("Kafka replay topic=#{topic} from=#{desc} replay_group=#{group}")
+            log.info("Kafka replay topic=#{topic} from=#{desc} replay_group=#{group}")
           end
         end
       end

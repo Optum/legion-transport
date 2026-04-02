@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
 require_relative 'tenant_topology'
 
 module Legion
   module Transport
     module TenantQuota
+      extend Legion::Logging::Helper
+
       class QuotaExceededError < StandardError
       end
 
@@ -32,12 +35,12 @@ module Legion
             end
 
             if msg_limit && entry[:count] >= msg_limit
-              Legion::Logging.warn "Tenant #{tenant_id} exceeded message rate quota (#{msg_limit} msg/s)" if defined?(Legion::Logging)
+              log.warn "Tenant #{tenant_id} exceeded message rate quota (#{msg_limit} msg/s)"
               raise QuotaExceededError, "Tenant #{tenant_id} exceeded message rate quota (#{msg_limit} msg/s)"
             end
 
             if size_limit && (entry[:bytes] + message_size) > size_limit
-              Legion::Logging.warn "Tenant #{tenant_id} exceeded byte rate quota (#{size_limit} bytes/s)" if defined?(Legion::Logging)
+              log.warn "Tenant #{tenant_id} exceeded byte rate quota (#{size_limit} bytes/s)"
               raise QuotaExceededError, "Tenant #{tenant_id} exceeded byte rate quota (#{size_limit} bytes/s)"
             end
 
@@ -74,7 +77,7 @@ module Legion
 
           Legion::Settings.dig(:transport, :tenant_topology, :quotas, tenant_id.to_sym)
         rescue StandardError => e
-          Legion::Logging.debug("TenantQuota#quota_settings failed for #{tenant_id}: #{e.message}") if defined?(Legion::Logging)
+          handle_exception(e, level: :warn, handled: true, operation: :tenant_quota_settings, tenant_id: tenant_id)
           nil
         end
       end
