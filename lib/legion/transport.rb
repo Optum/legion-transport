@@ -2,6 +2,8 @@
 
 require 'legion/transport/version'
 require 'legion/settings'
+require 'legion/logging'
+require 'legion/logging/helper'
 require 'legion/transport/settings'
 require_relative 'transport/errors'
 require_relative 'transport/routes'
@@ -19,42 +21,66 @@ module Legion
     end
 
     class << self
+      include Legion::Logging::Helper
+
       def register_routes
         return unless defined?(Legion::API) && Legion::API.respond_to?(:register_library_routes)
 
         Legion::API.register_library_routes('transport', Legion::Transport::Routes)
-        Legion::Logging.debug 'Legion::Transport routes registered with API' if defined?(Legion::Logging)
+        log.debug 'Legion::Transport routes registered with API'
       rescue StandardError => e
-        Legion::Logging.warn "Legion::Transport route registration failed: #{e.message}" if defined?(Legion::Logging)
+        handle_exception(e, level: :warn, operation: 'transport.register_routes')
       end
 
       def logger
-        return Legion::Logging if defined?(Legion::Logging) && Legion::Logging.respond_to?(:warn)
-
-        return @logger unless @logger.nil?
-
         require 'logger'
-        @logger = ::Logger.new($stdout)
-        configured_level = begin
-          Legion::Settings[:transport][:logger_level]
-        rescue StandardError => e
-          warn "Transport#logger level lookup failed: #{e.message}"
-          'warn'
-        end
-        @logger.level = case configured_level.to_s
-                        when 'debug' then ::Logger::DEBUG
-                        when 'info'  then ::Logger::INFO
-                        when 'error' then ::Logger::ERROR
-                        when 'fatal' then ::Logger::FATAL
-                        else              ::Logger::WARN
-                        end
+        @logger ||= ::Logger.new($stdout)
+        desired_level = logger_level_value
+        @logger.level = desired_level
         @logger
       end
 
       def settings
-        Legion::Settings[:transport] if Legion.const_defined? 'Settings'
+        return Legion::Settings[:transport] if Legion.const_defined?('Settings')
 
         Legion::Transport::Settings.default
+      end
+
+      private
+
+      def logger_level_value
+        case transport_log_level.to_s.downcase
+        when 'debug' then ::Logger::DEBUG
+        when 'info'  then ::Logger::INFO
+        when 'error' then ::Logger::ERROR
+        when 'fatal' then ::Logger::FATAL
+        else              ::Logger::WARN
+        end
+      rescue StandardError => e
+        handle_exception(e, level: :warn, operation: 'transport.logger.level_lookup')
+        ::Logger::WARN
+      end
+
+      def bunny_log_level_value
+        case transport_log_level.to_s.downcase
+        when 'debug' then :debug
+        when 'info'  then :info
+        when 'error' then :error
+        when 'fatal' then :fatal
+        else              :warn
+        end
+      rescue StandardError => e
+        handle_exception(e, level: :warn, operation: 'transport.logger.bunny_level_lookup')
+        :warn
+      end
+
+      def transport_log_level
+        source = settings
+        return source[:log_level] if source.is_a?(Hash) && source[:log_level]
+        return source[:logger_level] if source.is_a?(Hash) && source[:logger_level]
+        return source.dig(:logger, :level) if source.is_a?(Hash) && source.dig(:logger, :level)
+
+        'warn'
       end
     end
   end

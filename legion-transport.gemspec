@@ -29,6 +29,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'bunny', '>= 2.23'
   spec.add_dependency 'concurrent-ruby', '>= 1.2'
   spec.add_dependency 'legion-json', '>= 1.2.0'
+  spec.add_dependency 'legion-logging', '>= 1.4.0'
   spec.add_dependency 'legion-settings', '>= 1.3.12'
   spec.add_dependency 'logger'
 end

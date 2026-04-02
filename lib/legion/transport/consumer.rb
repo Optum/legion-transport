@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Transport
     class Consumer < Legion::Transport::CONNECTOR::Consumer
@@ -11,7 +13,7 @@ module Legion
         @consumer_tag = consumer_tag
         super(channel, queue, consumer_tag, no_ack, exclusive, opts)
         queue_name = queue.respond_to?(:name) ? queue.name : queue.to_s
-        Legion::Logging.info "Consumer subscribed to #{queue_name} with tag #{consumer_tag}" if defined?(Legion::Logging)
+        log.info "Consumer subscribed to #{queue_name} with tag #{consumer_tag}"
       end
     end
   end

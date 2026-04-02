@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Transport
     module Local
@@ -8,8 +10,10 @@ module Legion
       @mutex = Mutex.new
 
       class << self
+        include Legion::Logging::Helper
+
         def setup
-          Legion::Logging.info 'Legion::Transport::Local initialized (in-memory mode)' if defined?(Legion::Logging)
+          log.info 'Legion::Transport::Local initialized (in-memory mode)'
         end
 
         def publish(_exchange_name, routing_key, payload, **)
@@ -21,7 +25,7 @@ module Legion
               callback.call(payload)
             end
           end
-          Legion::Logging.debug "Local published routing_key=#{routing_key}" if defined?(Legion::Logging)
+          log.debug "Local published routing_key=#{routing_key}"
           { published: true, routing_key: routing_key }
         end
 
@@ -33,7 +37,7 @@ module Legion
             (@queues[queue_name] || []).each { |msg| block.call(msg) }
             @queues[queue_name] = []
           end
-          Legion::Logging.debug "Local subscribed queue=#{queue_name}" if defined?(Legion::Logging)
+          log.info "Local subscribed queue=#{queue_name}"
           { subscribed: true, queue: queue_name }
         end
 
@@ -42,7 +46,7 @@ module Legion
         end
 
         def reset!
-          Legion::Logging.info 'Legion::Transport::Local shut down (queues cleared)' if defined?(Legion::Logging)
+          log.info 'Legion::Transport::Local shut down (queues cleared)'
           @mutex.synchronize do
             @queues.clear
             @subscribers.clear
