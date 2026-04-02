@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Transport
     module Helpers
       class Pool
+        include Legion::Logging::Helper
+
         def initialize(size: 1, timeout: 5, &block)
           @size        = size
           @timeout     = timeout
@@ -23,7 +27,7 @@ module Legion
 
               if (conn = @available.pop)
                 @in_use << conn
-                Legion::Logging.debug "Pool checkout (available=#{@available.size} in_use=#{@in_use.size})" if defined?(Legion::Logging)
+                log.debug "Pool checkout (available=#{@available.size} in_use=#{@in_use.size})"
                 return conn
               end
 
@@ -31,13 +35,13 @@ module Legion
               if total < @size
                 conn = @factory.call
                 @in_use << conn
-                Legion::Logging.debug "Pool checkout new connection (available=#{@available.size} in_use=#{@in_use.size})" if defined?(Legion::Logging)
+                log.debug "Pool checkout new connection (available=#{@available.size} in_use=#{@in_use.size})"
                 return conn
               end
 
               remaining = deadline - Time.now
               if remaining <= 0
-                Legion::Logging.warn "Pool timeout after #{@timeout}s (size=#{@size} in_use=#{@in_use.size})" if defined?(Legion::Logging)
+                log.warn "Pool timeout after #{@timeout}s (size=#{@size} in_use=#{@in_use.size})"
                 raise Legion::Transport::PoolTimeout, 'timed out waiting for available connection'
               end
 
@@ -50,7 +54,7 @@ module Legion
           @mutex.synchronize do
             @in_use.delete(connection)
             @available << connection if connection.respond_to?(:open?) && connection.open?
-            Legion::Logging.debug "Pool checkin (available=#{@available.size} in_use=#{@in_use.size})" if defined?(Legion::Logging)
+            log.debug "Pool checkin (available=#{@available.size} in_use=#{@in_use.size})"
             @condition.signal
           end
         end
@@ -64,11 +68,12 @@ module Legion
             (@available + @in_use).each do |conn|
               conn.close
             rescue StandardError => e
-              Legion::Logging.debug("Pool#shutdown connection close failed: #{e.message}") if defined?(Legion::Logging)
+              handle_exception(e, level: :warn, handled: true, operation: 'transport.pool.shutdown', size: @size)
             end
             @available.clear
             @in_use.clear
           end
+          log.info "Pool shutdown complete size=#{@size}"
         end
 
         def connected?

@@ -2,11 +2,14 @@
 
 require 'net/http'
 require 'json'
+require 'legion/logging/helper'
 
 module Legion
   module Transport
     module Helpers
       module Policy
+        extend Legion::Logging::Helper
+
         module_function
 
         def apply_quorum_policy!(settings: nil)
@@ -44,9 +47,12 @@ module Legion
           http.read_timeout = 5
           response = http.request(req)
 
-          response.code.start_with?('2')
+          applied = response.code.start_with?('2')
+          log.info("Quorum policy applied pattern=#{policy[:pattern] || '^legion\\.'} host=#{host}:#{port}") if applied
+          applied
         rescue StandardError => e
-          Legion::Transport.logger.warn("Quorum policy apply failed: #{e.message}") if defined?(Legion::Transport)
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.policy.apply_quorum',
+                           host: host, port: port, vhost: vhost)
           false
         end
       end

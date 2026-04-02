@@ -13,35 +13,43 @@ RSpec.describe 'Connection recovery handling' do
 
   describe '.tear_down_session' do
     let(:mock_transport) { double('transport') }
+    let(:status_mutex) { double('status_mutex') }
     let(:mock_session) do
       double('session',
+             send:                  nil,
              instance_variable_get: nil,
              close:                 true).tap do |s|
         allow(s).to receive(:instance_variable_set)
         allow(s).to receive(:instance_variable_get).with(:@transport).and_return(mock_transport)
         allow(s).to receive(:instance_variable_get).with(:@reader_loop).and_return(nil)
+        allow(s).to receive(:instance_variable_get).with(:@status_mutex).and_return(status_mutex)
       end
     end
 
-    it 'closes transport socket before attempting session close' do
-      expect(mock_transport).to receive(:close).ordered
+    before do
+      allow(status_mutex).to receive(:synchronize).and_yield
+    end
+
+    it 'marks the session as intentionally closing before attempting session close' do
+      expect(status_mutex).to receive(:synchronize).ordered.and_yield
+      expect(mock_session).to receive(:instance_variable_set).with(:@status, :closing).ordered
+      expect(mock_session).to receive(:instance_variable_set).with(:@manually_closed, true).ordered
+      expect(mock_session).to receive(:instance_variable_set).with(:@recovering_from_network_failure, false).ordered
       expect(mock_session).to receive(:close).ordered
       connection.send(:tear_down_session, mock_session)
     end
 
     it 'disables recovery flag on the session' do
-      allow(mock_transport).to receive(:close)
       expect(mock_session).to receive(:instance_variable_set).with(:@recovering_from_network_failure, false)
       connection.send(:tear_down_session, mock_session)
     end
 
-    it 'handles nil transport gracefully' do
-      allow(mock_session).to receive(:instance_variable_get).with(:@transport).and_return(nil)
+    it 'handles missing status mutex gracefully' do
+      allow(mock_session).to receive(:instance_variable_get).with(:@status_mutex).and_return(nil)
       expect { connection.send(:tear_down_session, mock_session) }.not_to raise_error
     end
 
     it 'kills reader loop thread when session close times out' do
-      allow(mock_transport).to receive(:close)
       allow(mock_session).to receive(:close) { sleep 10 }
       mock_reader = double('reader_loop')
       mock_thread = double('thread')

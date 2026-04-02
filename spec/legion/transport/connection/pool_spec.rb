@@ -30,6 +30,7 @@ RSpec.describe Legion::Transport::Connection do
   describe 'connection pool activation' do
     context 'when connection_pool_size is 1 (default)' do
       before do
+        allow(Legion::Settings).to receive(:[]).and_call_original
         allow(Legion::Settings).to receive(:[]).with(:transport).and_return(
           Legion::Settings[:transport].merge(connection_pool_size: 1)
         )
@@ -46,6 +47,7 @@ RSpec.describe Legion::Transport::Connection do
       let(:pool_size) { 3 }
 
       before do
+        allow(Legion::Settings).to receive(:[]).and_call_original
         allow(Legion::Settings).to receive(:[]).with(:transport).and_return(
           Legion::Settings[:transport].merge(connection_pool_size: pool_size)
         )

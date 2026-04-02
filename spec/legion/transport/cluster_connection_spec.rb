@@ -87,7 +87,7 @@ RSpec.describe Legion::Transport::Connection, 'failover' do
     it 'logs warnings for each failed attempt' do
       Legion::Settings[:transport][:cluster_nodes] = ['rmq2:5672']
       allow(Bunny).to receive(:new).and_raise(Bunny::TCPConnectionFailed, 'refused')
-      allow(Legion::Transport.logger).to receive(:warn)
+      allow(described_class).to receive(:handle_exception).and_call_original
 
       begin
         described_class.send(:create_session_with_failover, connection_name: 'test')
@@ -95,7 +95,10 @@ RSpec.describe Legion::Transport::Connection, 'failover' do
         nil
       end
 
-      expect(Legion::Transport.logger).to have_received(:warn).at_least(:once)
+      expect(described_class).to have_received(:handle_exception).at_least(:once).with(
+        instance_of(Bunny::TCPConnectionFailed),
+        hash_including(level: :warn, handled: true, operation: 'transport.connection.create_session')
+      )
       Legion::Settings[:transport][:cluster_nodes] = []
     end
   end

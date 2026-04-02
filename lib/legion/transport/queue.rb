@@ -11,21 +11,22 @@ module Legion
         merged = options_builder(default_options, queue_options, options)
         ensure_dlx(merged)
         super(channel, queue, merged)
-      rescue Legion::Transport::CONNECTOR::PreconditionFailed
+      rescue Legion::Transport::CONNECTOR::PreconditionFailed => e
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.queue.initialize', queue: queue)
         retries.zero? ? retries = 1 : raise
         recreate_queue(queue)
-        @channel&.close rescue nil # rubocop:disable Style/RescueModifier
+        safely_close_channel(@channel)
         @channel = Legion::Transport::Connection.channel
         retry
       end
 
       def recreate_queue(queue)
-        Legion::Transport.logger.warn "Queue:#{queue} exists with wrong parameters, deleting and creating"
+        log.warn "Queue:#{queue} exists with wrong parameters, deleting and creating"
         tmp_channel = Legion::Transport::Connection.channel
         tmp_queue = ::Bunny::Queue.new(tmp_channel, queue, no_declare: true, passive: true)
         tmp_queue.delete
       ensure
-        tmp_channel&.close rescue nil # rubocop:disable Style/RescueModifier
+        safely_close_channel(tmp_channel)
       end
 
       def default_options
@@ -62,7 +63,7 @@ module Legion
                                                     arguments: { 'x-queue-type': 'classic' })
         channel.queue_bind("#{dlx_name}.queue", dlx_name, routing_key: '#')
       rescue StandardError => e
-        Legion::Transport.logger.warn "Failed to declare DLX #{dlx_name}: #{e.message}"
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.queue.ensure_dlx', dlx: dlx_name)
       end
 
       def queue_name
@@ -73,7 +74,7 @@ module Legion
         super
         true
       rescue Legion::Transport::CONNECTOR::PreconditionFailed => e
-        Legion::Logging.warn("Queue#delete precondition failed: #{e.message}") if defined?(Legion::Logging)
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.queue.delete')
         false
       end
 
@@ -83,6 +84,14 @@ module Legion
 
       def reject(delivery_tag, requeue: false)
         channel.reject(delivery_tag, requeue)
+      end
+
+      private
+
+      def safely_close_channel(tmp_channel)
+        tmp_channel&.close if tmp_channel&.open?
+      rescue StandardError => e
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.queue.close_channel')
       end
     end
   end
