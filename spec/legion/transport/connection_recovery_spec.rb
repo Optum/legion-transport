@@ -49,6 +49,12 @@ RSpec.describe 'Connection recovery handling' do
       expect { connection.send(:tear_down_session, mock_session) }.not_to raise_error
     end
 
+    it 'clears recovery flag even when status mutex is missing' do
+      allow(mock_session).to receive(:instance_variable_get).with(:@status_mutex).and_return(nil)
+      expect(mock_session).to receive(:instance_variable_set).with(:@recovering_from_network_failure, false)
+      connection.send(:tear_down_session, mock_session)
+    end
+
     it 'kills reader loop thread when session close times out' do
       allow(mock_session).to receive(:close) { sleep 10 }
       mock_reader = double('reader_loop')

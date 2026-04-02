@@ -73,6 +73,18 @@ RSpec.describe Legion::Transport::Connection do
         described_class.setup
         expect(described_class.instance_variable_get(:@pool)).to be_a(Legion::Transport::Helpers::Pool)
       end
+
+      it 'channel_open? delegates to session_open? in pool mode' do
+        described_class.setup
+        allow(described_class).to receive(:session_open?).and_return(true)
+        expect(described_class.channel_open?).to be true
+      end
+
+      it 'channel_open? returns false in pool mode when session is closed' do
+        described_class.setup
+        allow(described_class).to receive(:session_open?).and_return(false)
+        expect(described_class.channel_open?).to be false
+      end
     end
   end
 end

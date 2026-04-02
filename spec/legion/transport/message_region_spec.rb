@@ -9,6 +9,9 @@ RSpec.describe Legion::Transport::Message, 'Legion::Region header stamping' do
     before do
       stub_const('Legion::Region', Module.new)
       allow(Legion::Region).to receive(:current).and_return('us-east-2')
+      allow(Legion::Settings).to receive(:dig).and_call_original
+      allow(Legion::Settings).to receive(:dig).with(:region, :default_affinity).and_return('prefer_local')
+      allow(Legion::Settings).to receive(:dig).with(:region, :current).and_return(nil)
     end
 
     it 'stamps the region header' do

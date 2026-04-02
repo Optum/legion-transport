@@ -103,6 +103,9 @@ module Legion
         end
 
         def channel_open?
+          # In pool mode, channels are not cached in @channel_thread; check the primary session instead.
+          return session_open? if @pool
+
           current_channel = @channel_thread&.value
           return false unless current_channel
 
@@ -436,12 +439,12 @@ module Legion
 
         def mark_session_closing(sess)
           status_mutex = sess.instance_variable_get(:@status_mutex)
-          return unless status_mutex
 
-          status_mutex.synchronize do
+          status_mutex&.synchronize do
             sess.instance_variable_set(:@status, :closing)
             sess.instance_variable_set(:@manually_closed, true)
           end
+
           sess.instance_variable_set(:@recovering_from_network_failure, false)
         rescue StandardError => e
           handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.mark_session_closing')
