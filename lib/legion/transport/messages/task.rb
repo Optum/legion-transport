@@ -26,7 +26,7 @@ module Legion
                 elsif @options[:queue].is_a?(String) && @options[:function].is_a?(String)
                   "#{@options[:queue]}.#{@options[:function]}"
                 end
-          Legion::Logging.debug "Task routing_key=#{key}" if defined?(Legion::Logging)
+          log.debug "Task routing_key=#{key}"
           key
         end
 

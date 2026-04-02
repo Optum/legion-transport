@@ -27,7 +27,7 @@ module Legion
                   function = Legion::Data::Model::Function[@options[:function_id]]
                   "#{function.runner.extension.values[:exchange]}.#{function.runner.values[:queue]}.#{function.values[:name]}"
                 end
-          Legion::Logging.debug "SubTask routing_key=#{key} function_id=#{@options[:function_id]}" if defined?(Legion::Logging)
+          log.debug "SubTask routing_key=#{key} function_id=#{@options[:function_id]}"
           key
         end
 
