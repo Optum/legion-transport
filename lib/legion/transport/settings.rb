@@ -32,7 +32,7 @@ module Legion
           port:                      port,
           vhost:                     ENV['transport.connection.vhost'] || '/',
           recovery_attempts:         (ENV['transport.connection.recovery_attempts'] || 10).to_i,
-          logger_level:              ENV['transport.log_level'] || 'warn',
+          logger_level:              resolve_log_level,
           connected:                 false,
           resolved_hosts:            resolve_hosts(
             host: host, hosts: Array(extra_hosts),
@@ -43,6 +43,10 @@ module Legion
       end
 
       DEFAULT_AMQP_PORT = 5672
+
+      def self.resolve_log_level
+        ENV['transport.log_level'] || ENV['transport.logger_level'] || 'warn'
+      end
 
       def self.resolve_hosts(host: nil, hosts: [], server: nil, servers: [], port: nil)
         port ||= DEFAULT_AMQP_PORT
@@ -115,7 +119,7 @@ module Legion
         {
           type:                 'rabbitmq',
           connected:            false,
-          logger_level:         ENV['transport.logger_level'] || 'warn',
+          logger_level:         resolve_log_level,
           messages:             messages,
           prefetch:             ENV['transport.prefetch'].to_i,
           exchanges:            exchanges,
