@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
 require 'securerandom'
 require_relative 'kafka/errors'
 require_relative 'kafka/producer'
@@ -30,13 +31,16 @@ module Legion
     #   end
     module Kafka
       class << self
+        include Legion::Logging::Helper
+
         # Returns true when the Kafka adapter is enabled and rdkafka is available.
         def enabled?
           return false unless kafka_settings[:enabled]
 
           require_rdkafka
           true
-        rescue Legion::Transport::Kafka::UnavailableError
+        rescue Legion::Transport::Kafka::UnavailableError => e
+          handle_exception(e, level: :debug, handled: true, operation: 'transport.kafka.enabled')
           false
         end
 
@@ -117,7 +121,8 @@ module Legion
         # Returns the raw Kafka settings hash.
         def kafka_settings
           Legion::Settings[:transport][:kafka]
-        rescue StandardError
+        rescue StandardError => e
+          handle_exception(e, level: :debug, handled: true, operation: 'transport.kafka.settings')
           Legion::Transport::Kafka::DEFAULTS
         end
 
@@ -137,7 +142,8 @@ module Legion
 
         def require_rdkafka
           require 'rdkafka'
-        rescue LoadError
+        rescue LoadError => e
+          handle_exception(e, level: :debug, handled: true, operation: 'transport.kafka.require_rdkafka')
           raise Legion::Transport::Kafka::UnavailableError,
                 'rdkafka gem is required for Kafka support — add gem "rdkafka" to your Gemfile'
         end

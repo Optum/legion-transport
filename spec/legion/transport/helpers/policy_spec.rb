@@ -70,9 +70,12 @@ RSpec.describe Legion::Transport::Helpers::Policy do
 
     it 'logs warning when API call fails' do
       allow(http_instance).to receive(:request).and_raise(Errno::ECONNREFUSED)
-      allow(Legion::Transport.logger).to receive(:warn)
+      allow(described_class).to receive(:handle_exception).and_call_original
       described_class.apply_quorum_policy!(settings: settings)
-      expect(Legion::Transport.logger).to have_received(:warn).with(/Quorum policy apply failed/)
+      expect(described_class).to have_received(:handle_exception).with(
+        instance_of(Errno::ECONNREFUSED),
+        hash_including(level: :warn, handled: true, operation: 'transport.policy.apply_quorum')
+      )
     end
 
     it 'returns false on HTTP 404' do

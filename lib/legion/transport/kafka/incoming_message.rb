@@ -1,11 +1,15 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Transport
     module Kafka
       # Wraps an rdkafka message with a clean, framework-consistent interface.
       # Passed to subscriber blocks instead of the raw Rdkafka::Consumer::Message.
       class IncomingMessage
+        include Legion::Logging::Helper
+
         attr_reader :topic, :partition, :offset, :key, :headers, :timestamp, :raw
 
         def initialize(rdkafka_message)
@@ -27,7 +31,9 @@ module Legion
           return @payload unless @payload.is_a?(String)
 
           Legion::JSON.parse(@payload)
-        rescue StandardError
+        rescue StandardError => e
+          handle_exception(e, level: :debug, handled: true, operation: 'transport.kafka.incoming_message.decoded_payload',
+                           topic: topic, offset: offset)
           @payload
         end
 

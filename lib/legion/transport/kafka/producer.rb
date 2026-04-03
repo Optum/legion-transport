@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
 require_relative 'defaults'
 
 module Legion
@@ -10,6 +11,8 @@ module Legion
       # shared across calls (rdkafka producers are thread-safe).
       module Producer
         class << self
+          include Legion::Logging::Helper
+
           # Publish a message to a Kafka topic.
           #
           # @param topic     [String]
@@ -29,6 +32,8 @@ module Legion
           rescue Legion::Transport::Kafka::PublishError
             raise
           rescue StandardError => e
+            handle_exception(e, level: :error, handled: false, operation: 'transport.kafka.producer.publish',
+                             topic: topic)
             raise Legion::Transport::Kafka::PublishError, "Kafka publish to #{topic} failed: #{e.message}"
           end
 
@@ -49,6 +54,8 @@ module Legion
             opts[:partition] = partition unless partition.nil?
             handle(opts)
           rescue StandardError => e
+            handle_exception(e, level: :warn, handled: false, operation: 'transport.kafka.producer.produce_message',
+                             topic: topic)
             raise Legion::Transport::Kafka::PublishError, e.message
           end
 
@@ -116,7 +123,8 @@ module Legion
             return payload if payload.is_a?(String)
 
             Legion::JSON.dump(payload)
-          rescue StandardError
+          rescue StandardError => e
+            handle_exception(e, level: :debug, handled: true, operation: 'transport.kafka.producer.encode')
             payload.to_s
           end
 
@@ -125,9 +133,7 @@ module Legion
           end
 
           def log_publish(topic, key, report)
-            return unless defined?(Legion::Logging)
-
-            Legion::Logging.debug(
+            log.debug(
               "Kafka published topic=#{topic} partition=#{report.partition} " \
               "offset=#{report.offset}#{" key=#{key}" if key}"
             )

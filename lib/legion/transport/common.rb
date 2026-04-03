@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
 require 'legion/transport/connection'
 
 module Legion
   module Transport
     module Common
+      include Legion::Logging::Helper
+
       NAMESPACE_BOUNDARIES = %w[Actor Actors Runners Helpers Transport Data Queues Queue Exchanges Exchange Messages Message].freeze
 
       def open_channel(_options = {})
@@ -56,15 +59,14 @@ module Legion
       end
 
       def close!
-        Legion::Transport.logger.error 'close! called'
+        log.info 'close! called'
         return false unless Legion::Transport::Connection.channel_open?
 
         Legion::Transport::Connection.channel.close
       end
 
       def close
-        Legion::Transport.logger.error 'close called'
-        Legion::Transport.logger.warn 'close called, but method is called close!'
+        log.warn 'close called, but method is called close!'
         close!
       end
 

@@ -1,11 +1,14 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
 require 'tempfile'
 
 module Legion
   module Transport
     module Connection
       module Vault
+        include Legion::Logging::Helper
+
         # Provides Vault PKI-based cert issuance for Bunny mTLS connections.
         # Activated when `transport.tls.vault_pki: true` AND `Legion::Crypt::Mtls.enabled?`.
         # Bunny requires file paths for TLS material, so we write to tempfiles (auto-deleted
@@ -18,11 +21,13 @@ module Legion
 
           node_name = pki_node_name
           cert_data = Legion::Crypt::Mtls.issue_cert(common_name: node_name)
-          log_info("[mTLS] Issued PKI cert for #{node_name}: serial=#{cert_data[:serial]} expiry=#{cert_data[:expiry]}")
+          Legion::Transport.logger.info(
+            "[mTLS] Issued PKI cert for #{node_name}: serial=#{cert_data[:serial]} expiry=#{cert_data[:expiry]}"
+          )
 
           build_bunny_tls_opts(cert_data)
         rescue StandardError => e
-          log_warn("[mTLS] vault_pki_tls_options failed, falling back to plain TLS: #{e.message}")
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.vault_pki_tls_options')
           {}
         end
 
@@ -31,7 +36,8 @@ module Legion
           return false unless tls.is_a?(Hash)
 
           tls[:vault_pki] || tls['vault_pki'] || false
-        rescue StandardError
+        rescue StandardError => e
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.vault_pki_enabled')
           false
         end
 
@@ -73,7 +79,8 @@ module Legion
 
           name = Legion::Settings[:client]&.dig(:name) || Legion::Settings[:client]&.dig('name')
           name || 'legion.internal'
-        rescue StandardError
+        rescue StandardError => e
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.pki_node_name')
           'legion.internal'
         end
 
@@ -82,24 +89,9 @@ module Legion
 
           tls = Legion::Settings[:transport][:tls]
           tls.is_a?(Hash) ? tls : {}
-        rescue StandardError
+        rescue StandardError => e
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.transport_tls_settings')
           {}
-        end
-
-        def log_info(msg)
-          if defined?(Legion::Logging)
-            Legion::Logging.info(msg)
-          else
-            $stdout.puts(msg)
-          end
-        end
-
-        def log_warn(msg)
-          if defined?(Legion::Logging)
-            Legion::Logging.warn(msg)
-          else
-            warn(msg)
-          end
         end
       end
     end

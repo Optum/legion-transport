@@ -1,10 +1,14 @@
 # frozen_string_literal: true
 
+require 'legion/logging'
+require 'legion/logging/helper'
 require 'legion/settings'
 
 module Legion
   module Transport
     module Settings
+      extend Legion::Logging::Helper
+
       def self.connection
         host = ENV['transport.connection.host'] || '127.0.0.1'
         port = (ENV['transport.connection.port'] || DEFAULT_AMQP_PORT).to_i
@@ -28,7 +32,7 @@ module Legion
           port:                      port,
           vhost:                     ENV['transport.connection.vhost'] || '/',
           recovery_attempts:         (ENV['transport.connection.recovery_attempts'] || 10).to_i,
-          logger_level:              ENV['transport.log_level'] || 'info',
+          logger_level:              resolve_log_level,
           connected:                 false,
           resolved_hosts:            resolve_hosts(
             host: host, hosts: Array(extra_hosts),
@@ -39,6 +43,10 @@ module Legion
       end
 
       DEFAULT_AMQP_PORT = 5672
+
+      def self.resolve_log_level
+        ENV['transport.log_level'] || ENV['transport.logger_level'] || 'warn'
+      end
 
       def self.resolve_hosts(host: nil, hosts: [], server: nil, servers: [], port: nil)
         port ||= DEFAULT_AMQP_PORT
@@ -111,7 +119,7 @@ module Legion
         {
           type:                 'rabbitmq',
           connected:            false,
-          logger_level:         ENV['transport.logger_level'] || 'info',
+          logger_level:         resolve_log_level,
           messages:             messages,
           prefetch:             ENV['transport.prefetch'].to_i,
           exchanges:            exchanges,
@@ -139,9 +147,5 @@ end
 begin
   Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default) if Legion.const_defined?('Settings')
 rescue StandardError => e
-  if defined?(Legion::Logging)
-    Legion::Logging.warn("Legion::Transport settings merge failed: #{e.message}")
-  else
-    warn "Legion::Transport settings merge failed: #{e.message}"
-  end
+  Legion::Transport::Settings.handle_exception(e, level: :fatal, handled: true, operation: 'transport.settings.merge')
 end

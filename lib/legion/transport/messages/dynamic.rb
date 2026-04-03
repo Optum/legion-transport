@@ -15,7 +15,7 @@ module Legion::Transport::Messages # rubocop:disable Style/ClassAndModuleChildre
 
     def routing_key
       key = "#{function.runner.extension.values[:name]}.#{function.runner.values[:name]}.#{function.values[:name]}"
-      Legion::Logging.debug "Dynamic routing_key=#{key} function_id=#{@options[:function_id]}" if defined?(Legion::Logging)
+      log.debug "Dynamic routing_key=#{key} function_id=#{@options[:function_id]}"
       key
     end
 

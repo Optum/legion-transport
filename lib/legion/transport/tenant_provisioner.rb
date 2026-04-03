@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
 require_relative 'tenant_topology'
 
 module Legion
   module Transport
     module TenantProvisioner
+      extend Legion::Logging::Helper
+
       EXCHANGE_TYPES = %w[tasks results events].freeze
 
       def self.provision(tenant_id, channel: nil)
@@ -16,9 +19,10 @@ module Legion
         dlx = TenantTopology.exchange_name('dlx', tenant_id: tenant_id)
         ch.fanout(dlx, durable: true)
         ch.close unless channel
-        Legion::Logging.info "Provisioned tenant topology for tenant_id=#{tenant_id}" if defined?(Legion::Logging)
+        log.info "Provisioned tenant topology for tenant_id=#{tenant_id}"
       rescue StandardError => e
-        Legion::Logging.warn "Failed to provision tenant topology for tenant_id=#{tenant_id}: #{e.message}" if defined?(Legion::Logging)
+        handle_exception(e, level: :warn, handled: false, operation: 'transport.tenant_provisioner.provision',
+                         tenant_id: tenant_id)
         raise
       end
 
@@ -29,14 +33,16 @@ module Legion
           begin
             ch.exchange_delete(name)
           rescue StandardError => e
-            Legion::Logging.debug("TenantProvisioner#deprovision exchange delete failed for #{name}: #{e.message}") if defined?(Legion::Logging)
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.tenant_provisioner.deprovision_exchange',
+                             tenant_id: tenant_id, exchange_name: name)
             nil
           end
         end
         ch.close unless channel
-        Legion::Logging.info "Deprovisioned tenant topology for tenant_id=#{tenant_id}" if defined?(Legion::Logging)
+        log.info "Deprovisioned tenant topology for tenant_id=#{tenant_id}"
       rescue StandardError => e
-        Legion::Logging.warn "Failed to deprovision tenant topology for tenant_id=#{tenant_id}: #{e.message}" if defined?(Legion::Logging)
+        handle_exception(e, level: :warn, handled: false, operation: 'transport.tenant_provisioner.deprovision',
+                         tenant_id: tenant_id)
         raise
       end
     end

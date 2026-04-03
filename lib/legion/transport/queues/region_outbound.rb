@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Transport
     module Queues
       module RegionOutbound
+        extend Legion::Logging::Helper
+
         module_function
 
         def declare_all
@@ -24,8 +28,10 @@ module Legion
             durable:   true,
             arguments: { 'x-dead-letter-exchange' => 'tasks.dlx' }
           )
+          log.info "Declared region outbound queue=#{queue_name} target_region=#{target_region}"
         rescue StandardError => e
-          Legion::Transport.logger.warn "RegionOutbound: failed to declare queue for #{target_region}: #{e.message}"
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.region_outbound.declare',
+                           target_region: target_region, queue_name: queue_name)
           nil
         end
 

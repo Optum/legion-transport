@@ -13,35 +13,49 @@ RSpec.describe 'Connection recovery handling' do
 
   describe '.tear_down_session' do
     let(:mock_transport) { double('transport') }
+    let(:status_mutex) { double('status_mutex') }
     let(:mock_session) do
       double('session',
+             send:                  nil,
              instance_variable_get: nil,
              close:                 true).tap do |s|
         allow(s).to receive(:instance_variable_set)
         allow(s).to receive(:instance_variable_get).with(:@transport).and_return(mock_transport)
         allow(s).to receive(:instance_variable_get).with(:@reader_loop).and_return(nil)
+        allow(s).to receive(:instance_variable_get).with(:@status_mutex).and_return(status_mutex)
       end
     end
 
-    it 'closes transport socket before attempting session close' do
-      expect(mock_transport).to receive(:close).ordered
+    before do
+      allow(status_mutex).to receive(:synchronize).and_yield
+    end
+
+    it 'marks the session as intentionally closing before attempting session close' do
+      expect(status_mutex).to receive(:synchronize).ordered.and_yield
+      expect(mock_session).to receive(:instance_variable_set).with(:@status, :closing).ordered
+      expect(mock_session).to receive(:instance_variable_set).with(:@manually_closed, true).ordered
+      expect(mock_session).to receive(:instance_variable_set).with(:@recovering_from_network_failure, false).ordered
       expect(mock_session).to receive(:close).ordered
       connection.send(:tear_down_session, mock_session)
     end
 
     it 'disables recovery flag on the session' do
-      allow(mock_transport).to receive(:close)
       expect(mock_session).to receive(:instance_variable_set).with(:@recovering_from_network_failure, false)
       connection.send(:tear_down_session, mock_session)
     end
 
-    it 'handles nil transport gracefully' do
-      allow(mock_session).to receive(:instance_variable_get).with(:@transport).and_return(nil)
+    it 'handles missing status mutex gracefully' do
+      allow(mock_session).to receive(:instance_variable_get).with(:@status_mutex).and_return(nil)
       expect { connection.send(:tear_down_session, mock_session) }.not_to raise_error
     end
 
+    it 'clears recovery flag even when status mutex is missing' do
+      allow(mock_session).to receive(:instance_variable_get).with(:@status_mutex).and_return(nil)
+      expect(mock_session).to receive(:instance_variable_set).with(:@recovering_from_network_failure, false)
+      connection.send(:tear_down_session, mock_session)
+    end
+
     it 'kills reader loop thread when session close times out' do
-      allow(mock_transport).to receive(:close)
       allow(mock_session).to receive(:close) { sleep 10 }
       mock_reader = double('reader_loop')
       mock_thread = double('thread')
@@ -82,6 +96,49 @@ RSpec.describe 'Connection recovery handling' do
       allow(connection).to receive(:session).and_return(nil)
       allow(connection).to receive(:setup)
       expect { connection.force_reconnect }.not_to raise_error
+    end
+
+    it 'serializes concurrent reconnect attempts' do
+      calls = 0
+      lock = Mutex.new
+      allow(connection).to receive(:session).and_return(nil)
+      allow(connection).to receive(:setup) do
+        lock.synchronize { calls += 1 }
+        sleep 0.05
+      end
+
+      threads = [Thread.new { connection.force_reconnect }, Thread.new { connection.force_reconnect }]
+      threads.each(&:join)
+
+      expect(calls).to eq(1)
+    end
+  end
+
+  describe '.setup' do
+    it 'rebuilds a closed single session instead of reusing it' do
+      closed_session = instance_double('Bunny::Session', open?: false, closed?: true)
+      qos_channel = instance_double('Bunny::Channel', basic_qos: nil, open?: true, close: nil)
+      log_channel = instance_double('Bunny::Channel', prefetch: nil, open?: true, close: nil)
+      new_session = instance_double('Bunny::Session', open?: false, closed?: false, start: nil)
+      allow(new_session).to receive(:create_channel).and_return(qos_channel, log_channel)
+      allow(connection).to receive(:lite_mode?).and_return(false)
+      allow(connection).to receive(:settings).and_return(
+        Legion::Settings[:transport].merge(
+          connection_pool_size: 1,
+          channel:              { session_worker_pool_size: 8, default_worker_pool_size: 1 },
+          prefetch:             2,
+          connection:           Legion::Settings[:transport][:connection]
+        )
+      )
+      allow(connection).to receive(:create_session_with_failover).and_return(new_session)
+      allow(connection).to receive(:register_session_callbacks)
+      allow(connection).to receive(:apply_quorum_policy_if_enabled)
+      connection.instance_variable_set(:@session, Concurrent::AtomicReference.new(closed_session))
+
+      connection.setup
+
+      expect(connection.session).to eq(new_session)
+      expect(new_session).to have_received(:start)
     end
   end
 

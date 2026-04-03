@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Transport
     module Helper
+      include Legion::Logging::Helper
+
       # --- TTL Resolution ---
       # Override in your LEX to set a custom default message TTL for the extension.
       # Resolution chain: per-call :ttl option -> LEX override -> Settings -> nil (no expiration)
@@ -10,7 +14,8 @@ module Legion
         return nil unless defined?(Legion::Settings)
 
         Legion::Settings.dig(:transport, :messages, :ttl)
-      rescue StandardError
+      rescue StandardError => e
+        handle_exception(e, level: :warn, handled: true, operation: :transport_default_ttl)
         nil
       end
 
@@ -56,19 +61,22 @@ module Legion
         return false unless defined?(Legion::Settings)
 
         !!Legion::Settings.dig(:transport, :connected)
-      rescue StandardError
+      rescue StandardError => e
+        handle_exception(e, level: :warn, handled: true, operation: :transport_connected)
         false
       end
 
       def transport_session_open?
         Legion::Transport::Connection.session_open?
-      rescue StandardError
+      rescue StandardError => e
+        handle_exception(e, level: :warn, handled: true, operation: :transport_session_open)
         false
       end
 
       def transport_channel_open?
         Legion::Transport::Connection.channel_open?
-      rescue StandardError
+      rescue StandardError => e
+        handle_exception(e, level: :warn, handled: true, operation: :transport_channel_open)
         false
       end
 
@@ -84,7 +92,8 @@ module Legion
 
       def transport_spool_count
         Legion::Transport::Spool.count
-      rescue StandardError
+      rescue StandardError => e
+        handle_exception(e, level: :warn, handled: true, operation: :transport_spool_count)
         0
       end
 
@@ -104,7 +113,8 @@ module Legion
         exchange = default_exchange.cached_instance || default_exchange.new
         exchange.publish(encoded, routing_key: routing_key, **opts)
         true
-      rescue StandardError
+      rescue StandardError => e
+        handle_exception(e, level: :warn, handled: true, operation: :transport_publish, routing_key: routing_key)
         false
       end
     end

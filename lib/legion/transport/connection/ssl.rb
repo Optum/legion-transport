@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Transport
     module Connection
       module SSL
+        include Legion::Logging::Helper
+
         def tls_options(tls_config: nil, port: nil)
           if defined?(Legion::Crypt::TLS)
             tls_config ||= tls_settings
@@ -12,7 +16,7 @@ module Legion
             tls = Legion::Crypt::TLS.resolve(tls_config, port: port)
             return {} unless tls[:enabled]
 
-            Legion::Logging.info '[Transport] TLS enabled for RabbitMQ connection' if defined?(Legion::Logging)
+            Legion::Transport.logger.info '[Transport] TLS enabled for RabbitMQ connection'
             return {
               tls:                 true,
               tls_cert:            tls[:cert],
@@ -31,7 +35,7 @@ module Legion
           transport = defined?(Legion::Settings) ? Legion::Settings[:transport] : {}
           return {} unless transport[:tls]
 
-          Legion::Logging.info '[Transport] TLS enabled for RabbitMQ connection' if defined?(Legion::Logging)
+          Legion::Transport.logger.info '[Transport] TLS enabled for RabbitMQ connection'
 
           {
             tls:                 true,
@@ -47,7 +51,7 @@ module Legion
 
           Legion::Settings[:transport][:tls] || {}
         rescue StandardError => e
-          Legion::Logging.debug("SSL#tls_settings failed: #{e.message}") if defined?(Legion::Logging)
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.ssl.tls_settings')
           {}
         end
 
@@ -56,7 +60,7 @@ module Legion
 
           Legion::Settings[:transport][:connection][:port]
         rescue StandardError => e
-          Legion::Logging.debug("SSL#transport_port failed: #{e.message}") if defined?(Legion::Logging)
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.ssl.transport_port')
           nil
         end
       end

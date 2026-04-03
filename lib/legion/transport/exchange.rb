@@ -38,18 +38,19 @@ module Legion
         @type = options[:type] || default_type
         super(channel, @type, exchange, options_builder(default_options, exchange_options, @options))
         self.class.cache_instance(self) if self.class.respond_to?(:cache_instance)
-      rescue Legion::Transport::CONNECTOR::PreconditionFailed, Legion::Transport::CONNECTOR::ChannelAlreadyClosed
+      rescue Legion::Transport::CONNECTOR::PreconditionFailed, Legion::Transport::CONNECTOR::ChannelAlreadyClosed => e
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.exchange.initialize', exchange: exchange)
         raise unless @retries.nil?
 
         @retries = 1
         # Only close the channel if it was not explicitly provided by the caller.
-        @channel&.close rescue nil if @explicit_channel.nil? || @channel != @explicit_channel # rubocop:disable Style/RescueModifier
+        safely_close_channel(@channel) if @explicit_channel.nil? || @channel != @explicit_channel
         delete_exchange(exchange)
         retry
       end
 
       def delete_exchange(exchange)
-        Legion::Transport.logger.warn "Exchange:#{exchange} exists with wrong parameters, deleting and creating"
+        log.warn "Exchange:#{exchange} exists with wrong parameters, deleting and creating"
         @channel = Legion::Transport::Connection.channel
         @channel.exchange_delete(exchange)
       end
@@ -79,7 +80,7 @@ module Legion
         super
         true
       rescue Legion::Transport::CONNECTOR::PreconditionFailed => e
-        Legion::Logging.warn("Exchange#delete precondition failed: #{e.message}") if defined?(Legion::Logging)
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.exchange.delete')
         false
       end
 
@@ -90,14 +91,23 @@ module Legion
       def channel
         @channel ||= @explicit_channel || Legion::Transport::Connection.channel
       rescue Legion::Transport::CONNECTOR::ChannelLevelException => e
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.exchange.channel')
         # Prefer closing the channel from the exception (available even when @channel is nil
         # because the exception was raised before assignment completed).
         error_channel = e.respond_to?(:channel) ? e.channel : @channel
-        error_channel&.close rescue nil # rubocop:disable Style/RescueModifier
+        safely_close_channel(error_channel)
         @channel = Legion::Transport::Connection.channel
         raise e unless @channel.open?
 
         @channel
+      end
+
+      private
+
+      def safely_close_channel(error_channel)
+        error_channel&.close if error_channel&.open?
+      rescue StandardError => e
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.exchange.close_channel')
       end
     end
   end

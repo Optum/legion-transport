@@ -1,12 +1,15 @@
 # frozen_string_literal: true
 
 require 'fileutils'
+require 'legion/logging/helper'
 require 'securerandom'
 
 module Legion
   module Transport
     module Spool
       class << self
+        include Legion::Logging::Helper
+
         def setup(directory: nil, max_file_bytes: 10_485_760, max_total_bytes: 524_288_000,
                   max_files: 100, max_age_seconds: 259_200)
           @directory = directory || File.expand_path('~/.legionio/spool')
@@ -18,6 +21,8 @@ module Legion
           @mutex = Mutex.new
 
           FileUtils.mkdir_p(@directory)
+          log.info "Spool initialized directory=#{@directory} max_files=#{@max_files} " \
+                   "max_total_bytes=#{@max_total_bytes} max_file_bytes=#{@max_file_bytes}"
         end
 
         def write(exchange:, routing_key:, payload:)
@@ -39,7 +44,8 @@ module Legion
             rotate_if_needed
           end
         rescue StandardError => e
-          Legion::Logging.warn { "Spool write failed: #{e.message}" } if defined?(Legion::Logging)
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.spool.write',
+                           directory: @directory, exchange: exchange, routing_key: routing_key)
         end
 
         def drain
@@ -47,13 +53,14 @@ module Legion
 
           sorted_files.each do |file|
             lines = File.readlines(file).map(&:strip).reject(&:empty?)
+            log.info "Draining spool file=#{file} messages=#{lines.size}"
             lines.each do |line|
               msg = Legion::JSON.load(line)
               yield(msg)
             end
             File.delete(file)
           rescue StandardError => e
-            Legion::Logging.warn { "Spool drain error on #{file}: #{e.message}" } if defined?(Legion::Logging)
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.spool.drain', file: file)
             break
           end
         end
@@ -64,7 +71,7 @@ module Legion
           sorted_files.sum do |file|
             File.readlines(file).count { |l| !l.strip.empty? }
           rescue StandardError => e
-            Legion::Logging.debug("Spool#count file read failed: #{e.message}") if defined?(Legion::Logging)
+            handle_exception(e, level: :debug, handled: true, operation: 'transport.spool.count', file: file)
             0
           end
         end
@@ -74,14 +81,18 @@ module Legion
 
           cutoff = Time.now - @max_age_seconds
           sorted_files.each do |file|
-            File.delete(file) if File.mtime(file) < cutoff
+            next unless File.mtime(file) < cutoff
+
+            File.delete(file)
+            log.info "Evicted stale spool file=#{file}"
           rescue StandardError => e
-            Legion::Logging.debug("Spool#evict_stale file delete failed: #{e.message}") if defined?(Legion::Logging)
+            handle_exception(e, level: :debug, handled: true, operation: 'transport.spool.evict_stale', file: file)
             nil
           end
         end
 
         def reset!
+          log.info 'Spool reset'
           @directory = nil
           @current_file = nil
           @mutex = nil
@@ -112,6 +123,7 @@ module Legion
         def rotate_if_needed
           return unless File.exist?(@current_file) && File.size(@current_file) >= @max_file_bytes
 
+          log.debug "Rotating spool file=#{@current_file}"
           @current_file = nil
         end
 
@@ -122,7 +134,7 @@ module Legion
           total = files.sum do |f|
             File.size(f)
           rescue StandardError => e
-            Legion::Logging.debug("Spool#over_limits? file size check failed: #{e.message}") if defined?(Legion::Logging)
+            handle_exception(e, level: :debug, handled: true, operation: 'transport.spool.over_limits', file: f)
             0
           end
           total >= @max_total_bytes
@@ -132,9 +144,11 @@ module Legion
           files = sorted_files
           while files.size >= @max_files
             begin
-              File.delete(files.shift)
+              oldest = files.shift
+              File.delete(oldest)
+              log.info "Evicted oldest spool file=#{oldest}"
             rescue StandardError => e
-              Legion::Logging.debug("Spool#evict_oldest file delete failed: #{e.message}") if defined?(Legion::Logging)
+              handle_exception(e, level: :debug, handled: true, operation: 'transport.spool.evict_oldest')
               break
             end
           end

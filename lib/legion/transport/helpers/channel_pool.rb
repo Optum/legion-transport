@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Transport
     module Helpers
       class ChannelPool
+        include Legion::Logging::Helper
+
         def initialize(connection:, size: 10, prefetch: 2)
           @connection = connection
           @size       = size
@@ -19,7 +23,7 @@ module Legion
 
             if (ch = @available.pop)
               @in_use << ch
-              Legion::Logging.debug "ChannelPool borrow reused (available=#{@available.size} in_use=#{@in_use.size})" if defined?(Legion::Logging)
+              log.debug "ChannelPool borrow reused (available=#{@available.size} in_use=#{@in_use.size})"
               return ch
             end
 
@@ -29,7 +33,7 @@ module Legion
             ch = @connection.create_channel
             ch.prefetch(@prefetch) if ch.respond_to?(:prefetch)
             @in_use << ch
-            Legion::Logging.debug "ChannelPool borrow new channel (available=#{@available.size} in_use=#{@in_use.size})" if defined?(Legion::Logging)
+            log.debug "ChannelPool borrow new channel (available=#{@available.size} in_use=#{@in_use.size})"
             ch
           end
         end
@@ -41,7 +45,7 @@ module Legion
             return if (@available.size + @in_use.size) >= @size
 
             @available << channel
-            Legion::Logging.debug "ChannelPool return (available=#{@available.size} in_use=#{@in_use.size})" if defined?(Legion::Logging)
+            log.debug "ChannelPool return (available=#{@available.size} in_use=#{@in_use.size})"
           end
         end
 
@@ -55,11 +59,11 @@ module Legion
             (@available + @in_use).each do |ch|
               ch.close
             rescue StandardError => e
-              Legion::Logging.debug("ChannelPool#close_all channel close failed: #{e.message}") if defined?(Legion::Logging)
+              handle_exception(e, level: :warn, handled: true, operation: 'transport.channel_pool.close_all', size: @size)
             end
             @available.clear
             @in_use.clear
-            Legion::Logging.info "ChannelPool closed #{total} channel(s)" if defined?(Legion::Logging)
+            log.info "ChannelPool closed #{total} channel(s)"
           end
         end
 

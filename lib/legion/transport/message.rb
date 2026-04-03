@@ -1,9 +1,15 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Transport
     class Message
       include Legion::Transport::Common
+
+      class << self
+        include Legion::Logging::Helper
+      end
 
       def initialize(**options)
         @options = options
@@ -12,7 +18,8 @@ module Legion
 
       def self.max_payload_bytes
         Legion::Settings[:transport][:max_payload_bytes]
-      rescue StandardError
+      rescue StandardError => e
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.message.max_payload_bytes')
         1_048_576
       end
 
@@ -42,9 +49,10 @@ module Legion
                               app_id:           app_id,
                               timestamp:        timestamp)
         ex_name = exchange_dest.respond_to?(:name) ? exchange_dest.name : exchange_dest.to_s
-        Legion::Logging.debug "Published to exchange=#{ex_name} routing_key=#{routing_key || ''} class=#{self.class.name}" if defined?(Legion::Logging)
+        log.debug "Published to exchange=#{ex_name} routing_key=#{routing_key || ''} class=#{self.class.name}"
       rescue Bunny::ConnectionClosedError, Bunny::ChannelAlreadyClosed, Bunny::ChannelError,
              Bunny::NetworkErrorWrapper, IOError, Timeout::Error => e
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.message.publish', spooled: true)
         spool_message(e)
       end
 
@@ -107,7 +115,7 @@ module Legion
           encrypted = Legion::Crypt.encrypt(message_payload)
           headers[:iv] = encrypted[:iv]
           @options[:content_encoding] = 'encrypted/cs'
-          Legion::Logging.debug "Message encrypted with content_encoding=encrypted/cs class=#{self.class.name}" if defined?(Legion::Logging)
+          log.debug "Message encrypted with content_encoding=encrypted/cs class=#{self.class.name}"
           return encrypted[:enciphered_message]
         else
           @options[:content_encoding] = 'identity'
@@ -157,8 +165,8 @@ module Legion
         end
         @options[:headers]
       rescue StandardError => e
-        Legion::Transport.logger.error e.message
-        Legion::Transport.logger.error e.backtrace
+        handle_exception(e, level: :error, handled: true, operation: 'transport.message.headers')
+        {}
       end
 
       def priority
@@ -205,7 +213,7 @@ module Legion
         region = begin
           Legion::Settings[:transport][:region]
         rescue StandardError => e
-          Legion::Logging.debug("Message#inject_region_header region lookup failed: #{e.message}") if defined?(Legion::Logging)
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.message.inject_region_header')
           nil
         end
         return if region.nil?
@@ -217,13 +225,18 @@ module Legion
 
       def inject_legion_region_header
         return unless defined?(Legion::Region) &&
-                      Legion::Region.respond_to?(:current) &&
-                      Legion::Region.current
+                      Legion::Region.respond_to?(:current)
 
-        @options[:headers]['region'] = Legion::Region.current
+        default_affinity = (defined?(Legion::Settings) && Legion::Settings.dig(:region, :default_affinity)) || 'prefer_local'
+        explicit_region = defined?(Legion::Settings) ? Legion::Settings.dig(:region, :current) : nil
+        return if explicit_region.nil? && default_affinity == 'any'
+
+        current_region = Legion::Region.current
+        return if current_region.nil?
+
+        @options[:headers]['region'] = current_region
         @options[:headers]['region_affinity'] = @options[:region_affinity] ||
-                                                (defined?(Legion::Settings) && Legion::Settings.dig(:region, :default_affinity)) ||
-                                                'prefer_local'
+                                                default_affinity
       end
 
       def spool_message(error)
@@ -234,16 +247,16 @@ module Legion
           routing_key: routing_key || '',
           payload:     message
         )
-        Legion::Logging.debug { "Message spooled due to: #{error.message}" } if defined?(Legion::Logging)
+        log.info("Message spooled due to: #{error.message}")
       rescue StandardError => e
-        Legion::Logging.warn { "Spool write failed: #{e.message}" } if defined?(Legion::Logging)
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.message.spool_write')
       end
 
       def exchange_name_for_spool
         ex = exchange
         ex.respond_to?(:name) ? ex.name : ex.to_s
       rescue StandardError => e
-        Legion::Logging.warn("Message#exchange_name_for_spool failed: #{e.message}") if defined?(Legion::Logging)
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.message.exchange_name_for_spool')
         self.class.name
       end
     end

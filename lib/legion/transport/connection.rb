@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'concurrent-ruby'
+require 'legion/logging/helper'
 require 'timeout'
 require_relative 'connection/ssl'
 require_relative 'connection/vault'
@@ -12,6 +13,7 @@ module Legion
       MAX_RECOVERIES_PER_WINDOW = 5
 
       class << self
+        include Legion::Logging::Helper
         include Legion::Transport::Connection::SSL
         include Legion::Transport::Connection::Vault
 
@@ -38,32 +40,16 @@ module Legion
         end
 
         def setup(connection_name: 'Legion', **)
-          Legion::Transport.logger.info("Using transport connector: #{Legion::Transport::CONNECTOR}")
+          log.info("Using transport connector: #{Legion::Transport::CONNECTOR}")
           return setup_lite if lite_mode?
 
           pool_size = settings[:connection_pool_size].to_i
           if pool_size > 1
             setup_pool(pool_size: pool_size, connection_name: connection_name)
-          elsif @session.respond_to?(:value) && session.respond_to?(:closed?) && session.closed?
-            @channel_thread = Concurrent::ThreadLocalVar.new(nil)
-          elsif @session.respond_to?(:value) && session.respond_to?(:closed?) && session.open?
-            nil
+          elsif session.respond_to?(:open?) && session.open?
+            @channel_thread ||= Concurrent::ThreadLocalVar.new(nil)
           else
-            @session ||= Concurrent::AtomicReference.new(
-              create_session_with_failover(connection_name: connection_name)
-            )
-            @channel_thread = Concurrent::ThreadLocalVar.new(nil)
-            session.start
-            qos_channel = session.create_channel(nil, settings[:channel][:session_worker_pool_size])
-            apply_qos_and_close(qos_channel)
-            Legion::Settings[:transport][:connected] = true
-            if defined?(Legion::Logging)
-              host  = settings.dig(:connection, :host) || '127.0.0.1'
-              port  = settings.dig(:connection, :port) || 5672
-              user  = settings.dig(:connection, :user) || 'guest'
-              vhost = settings.dig(:connection, :vhost) || '/'
-              Legion::Logging.info "Connected to amqp://#{user}@#{host}:#{port}/#{vhost}"
-            end
+            rebuild_single_session(connection_name: connection_name)
           end
 
           register_session_callbacks
@@ -78,17 +64,25 @@ module Legion
 
           if @pool
             sess = @pool.checkout
-            ch = sess.create_channel(nil, settings[:channel][:default_worker_pool_size], false, 10)
-            ch.prefetch(settings[:prefetch])
-            @pool.checkin(sess)
-            return ch
+            begin
+              start_session(sess)
+              ch = sess.create_channel(nil, settings[:channel][:default_worker_pool_size], false, 10)
+              ch.prefetch(settings[:prefetch])
+              return ch
+            rescue StandardError => e
+              safe_close_channel(ch)
+              handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.channel', pooled: true)
+              raise
+            ensure
+              @pool.checkin(sess) if sess
+            end
           end
 
           return @channel_thread.value if !@channel_thread.value.nil? && @channel_thread.value.open?
 
           @channel_thread.value = session.create_channel(nil, settings[:channel][:default_worker_pool_size], false, 10)
           @channel_thread.value.prefetch(settings[:prefetch])
-          Legion::Logging.debug "Channel created for thread #{Thread.current.object_id}" if defined?(Legion::Logging)
+          log.debug "Channel created for thread #{Thread.current.object_id}"
           @channel_thread.value
         end
 
@@ -103,21 +97,30 @@ module Legion
         end
 
         def channel_open?
-          channel.open?
+          # In pool mode, channels are not cached in @channel_thread; check the primary session instead.
+          return session_open? if @pool
+
+          current_channel = @channel_thread&.value
+          return false unless current_channel
+
+          current_channel.open?
         rescue StandardError => e
-          Legion::Logging.debug("Connection#channel_open? failed: #{e.message}") if defined?(Legion::Logging)
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.channel_open?')
           false
         end
 
         def session_open?
-          session.open?
+          current_session = session
+          return false unless current_session
+
+          current_session.open?
         rescue StandardError => e
-          Legion::Logging.debug("Connection#session_open? failed: #{e.message}") if defined?(Legion::Logging)
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.session_open?')
           false
         end
 
         def shutdown
-          Legion::Logging.info 'Transport connection shutting down' if defined?(Legion::Logging)
+          log.info 'Transport connection shutting down'
           @shutting_down = true
           close_build_session
 
@@ -139,7 +142,7 @@ module Legion
 
           tear_down_session(s)
         rescue StandardError => e
-          Legion::Logging.warn("Transport shutdown error: #{e.message}") if defined?(Legion::Logging)
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.shutdown')
         ensure
           @log_channel = nil
           @session = nil
@@ -148,23 +151,28 @@ module Legion
 
         def force_reconnect(connection_name: 'Legion')
           return if @shutting_down
+          return unless begin_reconnect
 
-          Legion::Transport.logger.warn('Force reconnecting: pathological recovery loop detected')
+          log.warn('Force reconnecting: pathological recovery loop detected')
           old = session
+          pool_mode = !@pool.nil?
+          reset_pool if pool_mode
           @session = nil
           @channel_thread = Concurrent::ThreadLocalVar.new(nil)
           @recovery_timestamps = []
 
-          tear_down_session(old) if old
+          tear_down_session(old) if old && !pool_mode
           setup(connection_name: connection_name)
 
           Array(@reconnect_callbacks).each do |cb|
             cb.call
           rescue StandardError => e
-            Legion::Transport.logger.warn("Reconnect callback failed: #{e.message}")
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.reconnect_callback')
           end
         rescue StandardError => e
-          Legion::Transport.logger.error("force_reconnect failed: #{e.message}")
+          handle_exception(e, level: :error, handled: true, operation: 'transport.connection.force_reconnect')
+        ensure
+          clear_reconnect_state
         end
 
         def on_force_reconnect(&block)
@@ -181,7 +189,7 @@ module Legion
           )
           @build_session.value.start
           @build_channel_thread = Concurrent::ThreadLocalVar.new(nil)
-          Legion::Logging.info 'Build session opened' if defined?(Legion::Logging)
+          log.info 'Build session opened'
         end
 
         def build_channel
@@ -202,15 +210,16 @@ module Legion
           Timeout.timeout(10) { s.close } if s&.open?
           @build_session = nil
           @build_channel_thread = nil
-          Legion::Logging.info 'Build session closed (all build channels released)' if defined?(Legion::Logging)
-        rescue Timeout::Error
-          Legion::Logging.warn 'Build session close timed out, forcing' if defined?(Legion::Logging)
+          log.info 'Build session closed (all build channels released)'
+        rescue Timeout::Error => e
+          handle_exception(e, level: :warn, handled: true,
+                           operation: 'transport.connection.close_build_session')
           bs = @build_session&.value
-          bs&.instance_variable_get(:@transport)&.close rescue nil # rubocop:disable Style/RescueModifier
+          safely_close_build_transport(bs)
           @build_session = nil
           @build_channel_thread = nil
         rescue StandardError => e
-          Legion::Logging.warn "Build session close error: #{e.message}" if defined?(Legion::Logging)
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.close_build_session')
           @build_session = nil
           @build_channel_thread = nil
         end
@@ -224,13 +233,13 @@ module Legion
           return @log_channel if @log_channel&.open?
 
           if session&.open?
-            @log_channel&.close rescue nil # rubocop:disable Style/RescueModifier
+            safely_close_log_channel
             @log_channel = session.create_channel
             @log_channel.prefetch(1)
             @log_channel
           end
         rescue StandardError => e
-          Legion::Logging.debug("Connection#log_channel recovery failed: #{e.message}") if defined?(Legion::Logging)
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.log_channel')
           nil
         end
 
@@ -269,36 +278,43 @@ module Legion
 
         def safe_close_channel(chan)
           chan&.close if chan&.open?
-        rescue StandardError
-          # suppress close errors to avoid masking setup errors
+        rescue StandardError => e
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.safe_close_channel')
         end
 
         def reset_log_channel
           @log_channel&.close if @log_channel&.open?
         rescue StandardError => e
-          Legion::Logging.debug("Connection#reset_log_channel close failed: #{e.message}") if defined?(Legion::Logging)
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.reset_log_channel')
         ensure
           @log_channel = session.create_channel
           @log_channel.prefetch(1)
         end
 
         def setup_pool(pool_size:, connection_name:)
+          return true if reusable_pool?(pool_size)
+
+          tear_down_session(session) if session.respond_to?(:open?) && session.open? && @pool.nil?
+          reset_pool
           require 'legion/transport/helpers/pool'
           @pool = Legion::Transport::Helpers::Pool.new(size: pool_size) do
-            create_session_with_failover(connection_name: connection_name)
+            build_started_session(connection_name: connection_name)
           end
           primary = @pool.checkout
-          primary.start
+          start_session(primary)
           qos_channel = primary.create_channel(nil, settings[:channel][:session_worker_pool_size])
           apply_qos_and_close(qos_channel)
-          @pool.checkin(primary)
-          @session ||= Concurrent::AtomicReference.new(primary)
+          @session = Concurrent::AtomicReference.new(primary)
           @channel_thread = Concurrent::ThreadLocalVar.new(nil)
+          @configured_pool_size = pool_size
           Legion::Settings[:transport][:connected] = true
-          Legion::Logging.info "Connected via pool (size=#{pool_size})" if defined?(Legion::Logging)
+          log.info "Connected via pool (size=#{pool_size})"
         rescue StandardError => e
+          handle_exception(e, level: :error, handled: false, operation: 'transport.connection.setup_pool', pool_size: pool_size)
           @pool = nil
           raise e
+        ensure
+          @pool.checkin(primary) if defined?(primary) && primary && @pool
         end
 
         def setup_lite
@@ -308,7 +324,7 @@ module Legion
           session.start unless session.open?
           @channel_thread = Concurrent::ThreadLocalVar.new(nil)
           Legion::Settings[:transport][:connected] = true
-          Legion::Logging.info 'Connected via in-process transport (lite mode)' if defined?(Legion::Logging)
+          log.info 'Connected via in-process transport (lite mode)'
           true
         end
 
@@ -329,7 +345,8 @@ module Legion
           rescue Bunny::TCPConnectionFailed, Bunny::PossibleAuthenticationFailureError, Errno::ECONNREFUSED => e
             last_error = e
             host_desc = host_entry.is_a?(Hash) ? "#{host_entry[:host]}:#{host_entry[:port]}" : host_entry
-            Legion::Transport.logger.warn("Connection failed to #{host_desc}: #{e.message}")
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.create_session',
+                             host: host_desc)
           end
 
           raise Legion::Transport::ClusterUnavailable, "All cluster nodes exhausted: #{last_error&.message}" if defined?(Legion::Transport::ClusterUnavailable)
@@ -340,17 +357,17 @@ module Legion
         def register_session_callbacks
           @recovery_timestamps ||= []
 
-          session.on_blocked { Legion::Transport.logger.warn('Legion::Transport is being blocked by RabbitMQ!') } if session.respond_to?(:on_blocked)
+          session.on_blocked { log.warn('Legion::Transport is being blocked by RabbitMQ!') } if session.respond_to?(:on_blocked)
 
           if session.respond_to?(:on_unblocked)
             session.on_unblocked do
-              Legion::Transport.logger.info('Legion::Transport is no longer being blocked by RabbitMQ')
+              log.info('Legion::Transport is no longer being blocked by RabbitMQ')
             end
           end
 
           if session.respond_to?(:after_recovery_attempts_exhausted)
             session.after_recovery_attempts_exhausted do
-              Legion::Transport.logger.error('Recovery attempts exhausted — forcing full reconnect')
+              log.error('Recovery attempts exhausted, forcing full reconnect')
               Thread.new { force_reconnect }
             end
           end
@@ -358,14 +375,14 @@ module Legion
           return unless session.respond_to?(:after_recovery_completed)
 
           session.after_recovery_completed do
-            Legion::Transport.logger.info('Legion::Transport has completed recovery')
+            log.info('Legion::Transport has completed recovery')
 
             @recovery_timestamps << Time.now
             @recovery_timestamps.reject! { |t| t < Time.now - RECOVERY_WINDOW }
 
             if @recovery_timestamps.size >= MAX_RECOVERIES_PER_WINDOW
-              Legion::Transport.logger.warn(
-                "#{@recovery_timestamps.size} recoveries in #{RECOVERY_WINDOW}s — forcing full reconnect"
+              log.warn(
+                "#{@recovery_timestamps.size} recoveries in #{RECOVERY_WINDOW}s, forcing full reconnect"
               )
               Thread.new { force_reconnect }
             end
@@ -373,23 +390,13 @@ module Legion
         end
 
         def tear_down_session(sess)
-          sess.instance_variable_set(:@recovering_from_network_failure, false) rescue nil # rubocop:disable Style/RescueModifier
-
-          # Close transport socket FIRST — breaks IO.select in reader loop threads
-          begin
-            transport = sess.instance_variable_get(:@transport)
-            transport&.close
-          rescue StandardError
-            nil
-          end
-
-          # Then attempt orderly close with tight timeout
+          mark_session_closing(sess)
           Timeout.timeout(3) { sess.close }
-        rescue Timeout::Error
-          Legion::Transport.logger.warn('Session close timed out, killing reader thread')
+        rescue Timeout::Error => e
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.tear_down_session')
           kill_reader_threads(sess)
         rescue StandardError => e
-          Legion::Transport.logger.debug("tear_down_session: #{e.message}")
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.tear_down_session')
         end
 
         def kill_reader_threads(sess)
@@ -397,7 +404,7 @@ module Legion
           thread = reader_loop&.instance_variable_get(:@thread)
           thread&.kill
         rescue StandardError => e
-          Legion::Transport.logger.debug("kill_reader_threads: #{e.message}")
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.kill_reader_threads')
         end
 
         def apply_quorum_policy_if_enabled
@@ -405,13 +412,14 @@ module Legion
 
           Legion::Transport::Helpers::Policy.apply_quorum_policy!
         rescue StandardError => e
-          Legion::Logging.warn("Connection#apply_quorum_policy_if_enabled failed: #{e.message}") if defined?(Legion::Logging)
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.apply_quorum_policy')
           nil
         end
 
         def build_bunny_opts(connection_name:)
           conn_settings = Legion::Settings[:transport][:connection].dup
           resolved = conn_settings.delete(:resolved_hosts) || []
+          default_port = conn_settings[:port] || 5672
 
           cluster_nodes = Array(Legion::Settings[:transport][:cluster_nodes])
           all_hosts = (resolved + cluster_nodes).uniq
@@ -420,19 +428,119 @@ module Legion
           opts = conn_settings.merge(
             connection_name: connection_name,
             logger:          Legion::Transport.logger,
-            log_level:       :warn
+            log_level:       Legion::Transport.send(:bunny_log_level_value)
           )
 
           if all_hosts.length > 1
-            opts[:hosts] = all_hosts.map { |h| { host: h.split(':').first, port: h.split(':').last.to_i } }
+            opts[:hosts] = all_hosts.map { |h| parse_host_entry(h, default_port: default_port) }
             opts.delete(:host)
             opts.delete(:port)
+          elsif all_hosts.length == 1
+            normalized_host = parse_host_entry(all_hosts.first, default_port: default_port)
+            opts[:host] = normalized_host[:host]
+            opts[:port] = normalized_host[:port]
           end
 
           opts.merge!(tls_options)
           vault_opts = vault_pki_tls_options
           opts.merge!(vault_opts) unless vault_opts.empty?
           opts
+        end
+
+        def mark_session_closing(sess)
+          status_mutex = sess.instance_variable_get(:@status_mutex)
+
+          status_mutex&.synchronize do
+            sess.instance_variable_set(:@status, :closing)
+            sess.instance_variable_set(:@manually_closed, true)
+          end
+
+          sess.instance_variable_set(:@recovering_from_network_failure, false)
+        rescue StandardError => e
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.mark_session_closing')
+        end
+
+        def safely_close_build_transport(build_session)
+          build_transport = build_session&.instance_variable_get(:@transport)
+          build_transport&.close
+        rescue StandardError => e
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.close_build_transport')
+        end
+
+        def safely_close_log_channel
+          @log_channel&.close if @log_channel&.open?
+        rescue StandardError => e
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.close_log_channel')
+        end
+
+        def rebuild_single_session(connection_name:)
+          reset_pool if @pool
+          safely_close_log_channel
+          @log_channel = nil
+          @session = Concurrent::AtomicReference.new(create_session_with_failover(connection_name: connection_name))
+          @channel_thread = Concurrent::ThreadLocalVar.new(nil)
+          start_session(session)
+          qos_channel = session.create_channel(nil, settings[:channel][:session_worker_pool_size])
+          apply_qos_and_close(qos_channel)
+          Legion::Settings[:transport][:connected] = true
+          host  = settings.dig(:connection, :host) || '127.0.0.1'
+          port  = settings.dig(:connection, :port) || 5672
+          user  = settings.dig(:connection, :user) || 'guest'
+          vhost = settings.dig(:connection, :vhost) || '/'
+          log.info "Connected to amqp://#{user}@#{host}:#{port}/#{vhost}"
+        end
+
+        def build_started_session(connection_name:)
+          sess = create_session_with_failover(connection_name: connection_name)
+          start_session(sess)
+          sess
+        end
+
+        def start_session(sess)
+          return unless sess.respond_to?(:start)
+          return if sess.respond_to?(:open?) && sess.open?
+
+          sess.start
+        end
+
+        def reusable_pool?(pool_size)
+          @pool && @configured_pool_size == pool_size && @pool.connected? && session_open?
+        end
+
+        def reset_pool
+          @pool&.shutdown
+        rescue StandardError => e
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.reset_pool')
+        ensure
+          @pool = nil
+          @configured_pool_size = nil
+        end
+
+        def parse_host_entry(host_entry, default_port:)
+          entry = host_entry.to_s
+          match = entry.match(/\A(?<host>[^:]+):(?<port>\d+)\z/)
+          return { host: match[:host], port: match[:port].to_i } if match
+
+          { host: entry, port: default_port }
+        end
+
+        def reconnect_mutex
+          @reconnect_mutex ||= Mutex.new
+        end
+
+        def begin_reconnect
+          reconnect_mutex.synchronize do
+            return false if @reconnecting || @shutting_down
+
+            @reconnecting = true
+            true
+          end
+        end
+
+        def clear_reconnect_state
+          reconnect_mutex.synchronize do
+            @reconnecting = false
+          end
         end
       end
     end
