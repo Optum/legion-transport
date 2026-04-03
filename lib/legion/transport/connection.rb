@@ -435,10 +435,6 @@ module Legion
             opts[:hosts] = all_hosts.map { |h| parse_host_entry(h, default_port: default_port) }
             opts.delete(:host)
             opts.delete(:port)
-          elsif all_hosts.length == 1
-            normalized_host = parse_host_entry(all_hosts.first, default_port: default_port)
-            opts[:host] = normalized_host[:host]
-            opts[:port] = normalized_host[:port]
           end
 
           opts.merge!(tls_options)

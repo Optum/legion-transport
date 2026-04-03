@@ -9,6 +9,11 @@
 - `transport_spool_count` — pending spooled message count for degraded-mode awareness
 - `transport_publish` — convenience method to publish to default exchange with auto TTL and JSON encoding
 
+## [1.4.14] - 2026-04-03
+
+### Fixed
+- `build_bunny_opts` single-host branch overwrote user-configured host with stale `resolved_hosts` default (`127.0.0.1`), causing AMQP auth failures against the wrong broker
+
 ## [1.4.13] - 2026-04-02
 
 ### Added

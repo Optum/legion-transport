@@ -33,24 +33,6 @@ RSpec.describe Legion::Transport::Connection, 'cluster node rotation' do
       Legion::Settings[:transport][:cluster_nodes] = []
     end
 
-    it 'normalizes a single host:port connection entry' do
-      allow(Legion::Settings).to receive(:[]).and_call_original
-      transport_settings = Legion::Settings[:transport].dup
-      connection_settings = transport_settings[:connection].dup
-      connection_settings[:host] = 'rmq.example:5671'
-      connection_settings[:port] = 5672
-      connection_settings[:resolved_hosts] = ['rmq.example:5671']
-      transport_settings[:connection] = connection_settings
-      transport_settings[:cluster_nodes] = []
-      allow(Legion::Settings).to receive(:[]).with(:transport).and_return(transport_settings)
-
-      opts = described_class.send(:build_bunny_opts, connection_name: 'test')
-
-      expect(opts[:host]).to eq('rmq.example')
-      expect(opts[:port]).to eq(5671)
-      expect(opts[:hosts]).to be_nil
-    end
-
     it 'includes all unique hosts when cluster_nodes adds new entries' do
       Legion::Settings[:transport][:cluster_nodes] = ['rmq2:5672']
       opts = described_class.send(:build_bunny_opts, connection_name: 'test')
