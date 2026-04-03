@@ -21,6 +21,7 @@
 
 ### Fixed
 - `Transport.logger` now honors `transport.log_level` while still supporting legacy `transport.logger_level`
+- Connection setup now recreates closed sessions, normalizes single-host `host:port` values, starts pooled sessions before use, and serializes forced reconnects
 - Session teardown now marks sessions as intentionally closing before close attempts, reducing recovery interference during shutdown
 - Region header injection now skips `Legion::Region.current` lookups when affinity is `any` and no explicit region is configured
 

@@ -97,6 +97,49 @@ RSpec.describe 'Connection recovery handling' do
       allow(connection).to receive(:setup)
       expect { connection.force_reconnect }.not_to raise_error
     end
+
+    it 'serializes concurrent reconnect attempts' do
+      calls = 0
+      lock = Mutex.new
+      allow(connection).to receive(:session).and_return(nil)
+      allow(connection).to receive(:setup) do
+        lock.synchronize { calls += 1 }
+        sleep 0.05
+      end
+
+      threads = [Thread.new { connection.force_reconnect }, Thread.new { connection.force_reconnect }]
+      threads.each(&:join)
+
+      expect(calls).to eq(1)
+    end
+  end
+
+  describe '.setup' do
+    it 'rebuilds a closed single session instead of reusing it' do
+      closed_session = instance_double('Bunny::Session', open?: false, closed?: true)
+      qos_channel = instance_double('Bunny::Channel', basic_qos: nil, open?: true, close: nil)
+      log_channel = instance_double('Bunny::Channel', prefetch: nil, open?: true, close: nil)
+      new_session = instance_double('Bunny::Session', open?: false, closed?: false, start: nil)
+      allow(new_session).to receive(:create_channel).and_return(qos_channel, log_channel)
+      allow(connection).to receive(:lite_mode?).and_return(false)
+      allow(connection).to receive(:settings).and_return(
+        Legion::Settings[:transport].merge(
+          connection_pool_size: 1,
+          channel:              { session_worker_pool_size: 8, default_worker_pool_size: 1 },
+          prefetch:             2,
+          connection:           Legion::Settings[:transport][:connection]
+        )
+      )
+      allow(connection).to receive(:create_session_with_failover).and_return(new_session)
+      allow(connection).to receive(:register_session_callbacks)
+      allow(connection).to receive(:apply_quorum_policy_if_enabled)
+      connection.instance_variable_set(:@session, Concurrent::AtomicReference.new(closed_session))
+
+      connection.setup
+
+      expect(connection.session).to eq(new_session)
+      expect(new_session).to have_received(:start)
+    end
   end
 
   describe '.register_session_callbacks' do
