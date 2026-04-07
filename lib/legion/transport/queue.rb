@@ -14,7 +14,8 @@ module Legion
         super(channel, queue, merged)
       rescue Legion::Transport::CONNECTOR::PreconditionFailed => e
         handle_exception(e, level: :warn, handled: true, operation: 'transport.queue.initialize', queue: queue)
-        raise if credential_scoping_enabled? && (bootstrap_phase? || (!topology_mode? && !own_queue?))
+        identity_resolved = defined?(Legion::Identity::Process) && Legion::Identity::Process.resolved?
+        raise if credential_scoping_enabled? && (bootstrap_phase? || (!topology_mode? && identity_resolved && !own_queue?))
 
         retries.zero? ? retries = 1 : raise
         recreate_queue(queue)
@@ -39,8 +40,9 @@ module Legion
         hash[:exclusive] = false
         hash[:block] = false
         hash[:auto_delete] = false
-        hash[:passive] = passive?
-        if passive?
+        is_passive = passive?
+        hash[:passive] = is_passive
+        if is_passive
           hash[:arguments] = {}
         else
           args = { 'x-queue-type': 'quorum' }
@@ -52,6 +54,7 @@ module Legion
 
       def passive?
         return false unless credential_scoping_enabled?
+        return false unless defined?(Legion::Identity::Process)
         return true  if bootstrap_phase?
         return false if topology_mode?
         return false if own_queue?

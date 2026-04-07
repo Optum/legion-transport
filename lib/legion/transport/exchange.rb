@@ -67,6 +67,7 @@ module Legion
 
       def passive?
         return false unless credential_scoping_enabled?
+        return false unless defined?(Legion::Identity::Process)
         return true  if bootstrap_phase?
         return false if topology_mode?
 
