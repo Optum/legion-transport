@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [1.4.16] - 2026-04-07
+
+### Added
+- `Exchange#passive?` — mode-aware passive declare: returns false when `dynamic_rmq_creds` is disabled (default), true during bootstrap phase, false for infra/agent after identity resolves, true for worker mode (credential scoping phase 5)
+- `Queue#passive?` — same mode-aware logic for queues, with worker own-queue exception (workers actively declare their own queues)
+- `Queue#own_queue?` — checks `Identity::Process.queue_prefix` to determine if a queue belongs to this process; workers can actively declare own queues but passively assert shared queues
+- `Exchange#credential_scoping_enabled?`, `Exchange#bootstrap_phase?`, `Exchange#topology_mode?` — private helpers with `defined?` guards for optional dependencies
+- `Queue#credential_scoping_enabled?`, `Queue#bootstrap_phase?`, `Queue#topology_mode?` — same private helpers on Queue
+- Passive declare strips queue arguments (`x-dead-letter-exchange`, `x-queue-type`) to avoid `PreconditionFailed` on argument mismatch
+- `ensure_dlx` skips DLX creation when `credential_scoping_enabled? && (bootstrap_phase? || !topology_mode?)` — only infra/agent create shared DLX topology
+- `PreconditionFailed` guard on Exchange and Queue: worker and bootstrap modes raise instead of deleting and recreating shared topology
+
 ## [1.4.15] - 2026-04-06
 
 ### Added
