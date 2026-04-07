@@ -7,12 +7,15 @@ module Legion
 
       def initialize(queue = queue_name, options = {})
         retries ||= 0
+        @queue_name_arg = queue
         @options = options
         merged = options_builder(default_options, queue_options, options)
         ensure_dlx(merged)
         super(channel, queue, merged)
       rescue Legion::Transport::CONNECTOR::PreconditionFailed => e
         handle_exception(e, level: :warn, handled: true, operation: 'transport.queue.initialize', queue: queue)
+        raise if credential_scoping_enabled? && (bootstrap_phase? || (!topology_mode? && !own_queue?))
+
         retries.zero? ? retries = 1 : raise
         recreate_queue(queue)
         safely_close_channel(@channel)
@@ -36,10 +39,33 @@ module Legion
         hash[:exclusive] = false
         hash[:block] = false
         hash[:auto_delete] = false
-        args = { 'x-queue-type': 'quorum' }
-        args[:'x-dead-letter-exchange'] = dlx_exchange_name if dlx_enabled
-        hash[:arguments] = args
+        hash[:passive] = passive?
+        if passive?
+          hash[:arguments] = {}
+        else
+          args = { 'x-queue-type': 'quorum' }
+          args[:'x-dead-letter-exchange'] = dlx_exchange_name if dlx_enabled
+          hash[:arguments] = args
+        end
         hash
+      end
+
+      def passive?
+        return false unless credential_scoping_enabled?
+        return true  if bootstrap_phase?
+        return false if topology_mode?
+        return false if own_queue?
+
+        true
+      end
+
+      def own_queue?
+        return false unless defined?(Legion::Identity::Process) && Legion::Identity::Process.resolved?
+
+        prefix = Legion::Identity::Process.queue_prefix
+        return false if prefix.nil? || prefix.empty?
+
+        @queue_name_arg.to_s.start_with?(prefix)
       end
 
       def queue_options
@@ -55,6 +81,8 @@ module Legion
       end
 
       def ensure_dlx(merged_options)
+        return if credential_scoping_enabled? && (bootstrap_phase? || !topology_mode?)
+
         dlx_name = merged_options.dig(:arguments, :'x-dead-letter-exchange')
         return if dlx_name.nil? || dlx_name.empty?
 
@@ -87,6 +115,24 @@ module Legion
       end
 
       private
+
+      def credential_scoping_enabled?
+        return false unless defined?(Legion::Settings)
+
+        Legion::Settings.dig(:crypt, :vault, :dynamic_rmq_creds) == true
+      end
+
+      def bootstrap_phase?
+        return false unless defined?(Legion::Identity::Process)
+
+        !Legion::Identity::Process.resolved? && credential_scoping_enabled?
+      end
+
+      def topology_mode?
+        return true unless defined?(Legion::Mode)
+
+        Legion::Mode.infra? || Legion::Mode.agent?
+      end
 
       def safely_close_channel(tmp_channel)
         tmp_channel&.close if tmp_channel&.open?

@@ -41,6 +41,7 @@ module Legion
       rescue Legion::Transport::CONNECTOR::PreconditionFailed, Legion::Transport::CONNECTOR::ChannelAlreadyClosed => e
         handle_exception(e, level: :warn, handled: true, operation: 'transport.exchange.initialize', exchange: exchange)
         raise unless @retries.nil?
+        raise if credential_scoping_enabled? && !topology_mode?
 
         @retries = 1
         # Only close the channel if it was not explicitly provided by the caller.
@@ -65,7 +66,11 @@ module Legion
       end
 
       def passive?
-        false
+        return false unless credential_scoping_enabled?
+        return true  if bootstrap_phase?
+        return false if topology_mode?
+
+        true
       end
 
       def exchange_name
@@ -103,6 +108,24 @@ module Legion
       end
 
       private
+
+      def credential_scoping_enabled?
+        return false unless defined?(Legion::Settings)
+
+        Legion::Settings.dig(:crypt, :vault, :dynamic_rmq_creds) == true
+      end
+
+      def bootstrap_phase?
+        return false unless defined?(Legion::Identity::Process)
+
+        !Legion::Identity::Process.resolved? && credential_scoping_enabled?
+      end
+
+      def topology_mode?
+        return true unless defined?(Legion::Mode)
+
+        Legion::Mode.infra? || Legion::Mode.agent?
+      end
 
       def safely_close_channel(error_channel)
         error_channel&.close if error_channel&.open?
