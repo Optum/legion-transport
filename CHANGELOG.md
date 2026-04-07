@@ -8,6 +8,7 @@
 - `transport_channel` — convenience accessor for the current thread's AMQP channel
 - `transport_spool_count` — pending spooled message count for degraded-mode awareness
 - `transport_publish` — convenience method to publish to default exchange with auto TTL and JSON encoding
+- AMQP identity headers: `Message#headers` injects `x-legion-identity-{canonical-name,id,kind,mode,source}` from `Identity::Process` when resolved (Wire Format Phase 3)
 
 ## [1.4.14] - 2026-04-03
 
