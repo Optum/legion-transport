@@ -210,16 +210,26 @@ module Legion
               "message payload is #{size} bytes, exceeds limit of #{limit} bytes"
       end
 
-      def inject_identity_headers
-        return unless defined?(Legion::Identity::Process) && Legion::Identity::Process.resolved?
+      def identity_process_resolved?
+        defined?(Legion::Identity::Process) && Legion::Identity::Process.resolved?
+      end
 
+      def identity_headers
         id = Legion::Identity::Process.identity_hash
-        @options[:headers]['x-legion-identity-canonical-name'] = id[:canonical_name].to_s
-        @options[:headers]['x-legion-identity-id']             = id[:id].to_s
-        @options[:headers]['x-legion-identity-kind']           = id[:kind].to_s
-        @options[:headers]['x-legion-identity-mode']           = id[:mode].to_s
-        @options[:headers]['x-legion-identity-source']         = id[:source].to_s
-      rescue StandardError => e
+        {
+          'x-legion-identity-canonical-name' => id[:canonical_name].to_s,
+          'x-legion-identity-id'             => id[:id].to_s,
+          'x-legion-identity-kind'           => id[:kind].to_s,
+          'x-legion-identity-mode'           => id[:mode].to_s,
+          'x-legion-identity-source'         => id[:source].to_s
+        }
+      end
+
+      def inject_identity_headers
+        return unless identity_process_resolved?
+
+        @options[:headers].merge!(identity_headers)
+      rescue LoadError, StandardError => e
         handle_exception(e, level: :warn, handled: true, operation: 'transport.message.inject_identity_headers')
       end
 

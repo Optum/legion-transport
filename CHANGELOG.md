@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.4.15] - 2026-04-06
+
 ### Added
 - Layered TTL resolution in Helper (`transport_default_ttl` — LEX-overridable, reads Settings)
 - `transport_session_open?` / `transport_channel_open?` / `transport_lite_mode?` — real connection status
@@ -9,6 +11,7 @@
 - `transport_spool_count` — pending spooled message count for degraded-mode awareness
 - `transport_publish` — convenience method to publish to default exchange with auto TTL and JSON encoding
 - AMQP identity headers: `Message#headers` injects `x-legion-identity-{canonical-name,id,kind,mode,source}` from `Identity::Process` when resolved (Wire Format Phase 3)
+- `identity_process_resolved?` and `identity_headers` private helpers extracted from `inject_identity_headers` for testability
 
 ## [1.4.14] - 2026-04-03
 
