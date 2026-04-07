@@ -41,7 +41,7 @@ module Legion
       rescue Legion::Transport::CONNECTOR::PreconditionFailed, Legion::Transport::CONNECTOR::ChannelAlreadyClosed => e
         handle_exception(e, level: :warn, handled: true, operation: 'transport.exchange.initialize', exchange: exchange)
         raise unless @retries.nil?
-        raise if credential_scoping_enabled? && !topology_mode?
+        raise if credential_scoping_enabled? && (bootstrap_phase? || (!topology_mode? && Legion::Identity::Process.resolved?))
 
         @retries = 1
         # Only close the channel if it was not explicitly provided by the caller.
