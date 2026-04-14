@@ -117,6 +117,14 @@ module Legion
         channel.reject(delivery_tag, requeue)
       end
 
+      def nack_or_dlq(delivery_tag, retry_count: 0, threshold: 2)
+        if retry_count < threshold
+          reject(delivery_tag, requeue: true)
+        else
+          reject(delivery_tag, requeue: false)
+        end
+      end
+
       private
 
       def credential_scoping_enabled?

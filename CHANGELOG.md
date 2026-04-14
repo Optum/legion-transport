@@ -5,12 +5,8 @@
 ## [1.4.18] - 2026-04-13
 
 ### Added
+- `Queue#nack_or_dlq(delivery_tag, retry_count:, threshold:)` — convenience helper: rejects with `requeue: true` when `retry_count < threshold`, dead-letters with `requeue: false` otherwise
 - `engine:` field in `SubTask#message` — included when provided, omitted via `.compact` when absent; enables fleet pipeline engine propagation through the task chain
-
-## [1.4.17] - 2026-04-07
-
-### Added
-- `SubTask` message serialization improvements (version bump from previous branch)
 
 ## [1.4.16] - 2026-04-07
 
