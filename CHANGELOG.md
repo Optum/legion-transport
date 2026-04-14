@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.4.18] - 2026-04-13
+
+### Added
+- `Queue#nack_or_dlq(delivery_tag, retry_count:, threshold:)` — convenience helper: rejects with `requeue: true` when `retry_count < threshold`, dead-letters with `requeue: false` otherwise
+
 ## [1.4.16] - 2026-04-07
 
 ### Added
