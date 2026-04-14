@@ -51,6 +51,39 @@ RSpec.describe Legion::Transport::Messages::Task do
     end
   end
 
+  describe '#exchange' do
+    let(:instance) do
+      obj = described_class.allocate
+      obj.instance_variable_set(:@options, options)
+      obj
+    end
+
+    context 'when exchange option is a String' do
+      let(:options) { { exchange: 'lex', function: 'task' } }
+
+      it 'does not raise NoMethodError' do
+        allow(Legion::Transport::Exchange).to receive(:new).with('lex').and_return(double('exchange'))
+        expect { instance.exchange }.not_to raise_error
+      end
+
+      it 'instantiates the base Exchange class with the given string name' do
+        exchange_double = double('exchange')
+        expect(Legion::Transport::Exchange).to receive(:new).with('lex').and_return(exchange_double)
+        expect(instance.exchange).to eq exchange_double
+      end
+    end
+
+    context 'when exchange option is not set' do
+      let(:options) { { function: 'task' } }
+
+      it 'returns a Task exchange instance' do
+        task_exchange = double('task_exchange')
+        allow(Legion::Transport::Exchanges::Task).to receive(:new).and_return(task_exchange)
+        expect(instance.exchange).to eq task_exchange
+      end
+    end
+  end
+
   describe '#validate' do
     it 'raises TypeError when function is not a String' do
       instance = described_class.allocate
