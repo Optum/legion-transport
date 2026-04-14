@@ -42,22 +42,26 @@ RSpec.describe Legion::Transport::Messages::SubTask do
   end
 
   describe '#message' do
-    it 'returns a hash with transformation, conditions, and results' do
+    it 'returns a hash with transformation, conditions, and results when provided' do
       instance = described_class.allocate
-      instance.instance_variable_set(:@options, {})
+      instance.instance_variable_set(:@options, {
+                                       transformation: '{"key":"val"}',
+                                       conditions:     '{"cond":"test"}',
+                                       results:        { data: 'value' }
+                                     })
       msg = instance.message
       expect(msg).to have_key(:transformation)
       expect(msg).to have_key(:conditions)
       expect(msg).to have_key(:results)
     end
 
-    it 'uses default empty JSON objects when options are not present' do
+    it 'omits keys with nil values' do
       instance = described_class.allocate
       instance.instance_variable_set(:@options, {})
       msg = instance.message
-      expect(msg[:transformation]).to eq '{}'
-      expect(msg[:conditions]).to eq '{}'
-      expect(msg[:results]).to eq '{}'
+      expect(msg).not_to have_key(:transformation)
+      expect(msg).not_to have_key(:conditions)
+      expect(msg).not_to have_key(:results)
     end
   end
 

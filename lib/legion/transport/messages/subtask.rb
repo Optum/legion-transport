@@ -12,10 +12,11 @@ module Legion
 
         def message
           {
-            transformation: @options[:transformation] || '{}',
-            conditions:     @options[:conditions] || '{}',
-            results:        @options[:results] || '{}'
-          }
+            transformation: @options[:transformation],
+            conditions:     @options[:conditions],
+            results:        @options[:results],
+            engine:         @options[:engine]
+          }.compact
         end
 
         def routing_key
