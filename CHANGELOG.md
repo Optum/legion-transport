@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.4.18] - 2026-04-13
+
+### Added
+- `engine:` field in `SubTask#message` — included when provided, omitted via `.compact` when absent; enables fleet pipeline engine propagation through the task chain
+
+## [1.4.17] - 2026-04-07
+
+### Added
+- `SubTask` message serialization improvements (version bump from previous branch)
+
 ## [1.4.16] - 2026-04-07
 
 ### Added
