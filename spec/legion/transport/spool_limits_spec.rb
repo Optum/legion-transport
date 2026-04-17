@@ -40,7 +40,7 @@ RSpec.describe Legion::Transport::Spool, 'limits and envelope (#19)' do
 
       messages = []
       described_class.drain { |msg| messages << msg }
-      expect(messages.first[:headers]).to eq({ :'x-priority' => 5, legion_protocol_version: '2.0' })
+      expect(messages.first[:headers]).to eq({ 'x-priority': 5, legion_protocol_version: '2.0' })
     end
 
     it 'preserves priority in spooled message' do

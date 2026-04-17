@@ -1,3 +1,5 @@
+Always run a full `bundle exec rspec` and `bundle exec rubocop -A` and fix all errors before committing.
+
 # legion-transport: AMQP Transport Layer for LegionIO
 
 **Repository Level 3 Documentation**
