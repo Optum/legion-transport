@@ -33,7 +33,7 @@ module Legion
         end
 
         def validate
-          raise TypeError unless @options[:function].is_a? String
+          raise TypeError unless @options[:function].is_a?(String) || @options[:function_id].is_a?(Integer)
 
           @valid = true
         end

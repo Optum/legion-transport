@@ -25,19 +25,23 @@ module Legion
                    "max_total_bytes=#{@max_total_bytes} max_file_bytes=#{@max_file_bytes}"
         end
 
-        def write(exchange:, routing_key:, payload:)
+        def write(exchange:, routing_key:, payload:, **envelope_opts)
           setup unless @directory
 
           @mutex.synchronize do
             evict_oldest if over_limits?
 
-            line = Legion::JSON.dump({
-                                       exchange:    exchange,
-                                       routing_key: routing_key,
-                                       payload:     payload,
-                                       spooled_at:  Time.now.iso8601
-                                     })
+            envelope = {
+              exchange:    exchange,
+              routing_key: routing_key,
+              payload:     payload,
+              spooled_at:  Time.now.iso8601
+            }
+            %i[headers priority message_id correlation_id persistent].each do |key|
+              envelope[key] = envelope_opts[key] unless envelope_opts[key].nil?
+            end
 
+            line = Legion::JSON.dump(envelope)
             file = current_file
             File.open(file, 'a') { |f| f.puts(line) }
 
@@ -48,16 +52,14 @@ module Legion
                            directory: @directory, exchange: exchange, routing_key: routing_key)
         end
 
-        def drain
+        def drain(&)
           setup unless @directory
 
           sorted_files.each do |file|
-            lines = File.readlines(file).map(&:strip).reject(&:empty?)
-            log.info "Draining spool file=#{file} messages=#{lines.size}"
-            lines.each do |line|
-              msg = Legion::JSON.load(line)
-              yield(msg)
-            end
+            messages = []
+            stream_lines(file) { |line| messages << Legion::JSON.load(line) }
+            log.info "Draining spool file=#{file} messages=#{messages.size}"
+            messages.each(&)
             File.delete(file)
           rescue StandardError => e
             handle_exception(e, level: :warn, handled: true, operation: 'transport.spool.drain', file: file)
@@ -69,7 +71,9 @@ module Legion
           setup unless @directory
 
           sorted_files.sum do |file|
-            File.readlines(file).count { |l| !l.strip.empty? }
+            n = 0
+            stream_lines(file) { n += 1 }
+            n
           rescue StandardError => e
             handle_exception(e, level: :debug, handled: true, operation: 'transport.spool.count', file: file)
             0
@@ -142,7 +146,10 @@ module Legion
 
         def evict_oldest
           files = sorted_files
-          while files.size >= @max_files
+          loop do
+            break if files.empty?
+            break if files.size < @max_files && total_bytes(files) < @max_total_bytes
+
             begin
               oldest = files.shift
               File.delete(oldest)
@@ -151,6 +158,22 @@ module Legion
               handle_exception(e, level: :debug, handled: true, operation: 'transport.spool.evict_oldest')
               break
             end
+          end
+        end
+
+        def total_bytes(files)
+          files.sum do |f|
+            File.size(f)
+          rescue StandardError => e
+            handle_exception(e, level: :debug, handled: true, operation: 'transport.spool.total_bytes', file: f)
+            0
+          end
+        end
+
+        def stream_lines(file)
+          File.foreach(file) do |line|
+            stripped = line.strip
+            yield stripped unless stripped.empty?
           end
         end
       end

@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [1.4.21] - 2026-04-17
+
+### Fixed
+- `Message#expiration` now falls back to `:ttl` from transport message settings, so the `transport.messages.ttl` setting is honored at publish time. (Fixes #20)
+- `Messages::SubTask#validate` now accepts `function_id: Integer` as an alternative to `function: String`, matching the actual routing paths available in `routing_key`. (Fixes #20)
+- `Messages::TaskUpdate#validate` now enforces that `task_id` is a positive Integer and `status` is one of the declared valid statuses, raising `InvalidTaskId`/`InvalidTaskStatus` respectively instead of silently passing invalid payloads. (Fixes #20)
+- `/api/transport/publish` now uses `Messages::Direct` (a new generic message class) instead of `Messages::Dynamic`, which required `function_id` and `Legion::Data`. The new class publishes to any arbitrary exchange + routing key. (Fixes #20)
+- `Spool.write` now accepts and persists envelope metadata (`headers`, `priority`, `message_id`, `correlation_id`, `persistent`). `Message#spool_message` passes these fields through so replayed messages can reconstruct the original AMQP publish. (Fixes #19)
+- `Spool.evict_oldest` now evicts files when `max_total_bytes` is exceeded, not only when `max_files` is exceeded. Previously the total-bytes limit was checked in `over_limits?` but never acted on in the eviction loop. (Fixes #19)
+- `Spool.count` and `Spool.drain` now stream files line-by-line via `File.foreach` instead of loading entire files with `File.readlines`. (Fixes #19)
+
+### Added
+- `Messages::Direct` — generic publish message that accepts an arbitrary exchange name and routing key without requiring `Legion::Data` or a `function_id`. Used by the `/api/transport/publish` route.
+
 ## [1.4.20] - 2026-04-17
 
 ### Fixed
