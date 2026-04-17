@@ -80,7 +80,10 @@ module Legion
 
           return @channel_thread.value if !@channel_thread.value.nil? && @channel_thread.value.open?
 
-          @channel_thread.value = session.create_channel(nil, settings[:channel][:default_worker_pool_size], false, 10)
+          s = session
+          raise IOError, 'transport session unavailable (recovery in progress)' unless s&.open?
+
+          @channel_thread.value = s.create_channel(nil, settings[:channel][:default_worker_pool_size], false, 10)
           @channel_thread.value.prefetch(settings[:prefetch])
           log.debug "Channel created for thread #{Thread.current.object_id}"
           @channel_thread.value
@@ -122,6 +125,7 @@ module Legion
         def shutdown
           log.info 'Transport connection shutting down'
           @shutting_down = true
+          pre_mark_sessions_closing
           close_build_session
 
           if @pool
@@ -269,6 +273,20 @@ module Legion
         end
 
         private
+
+        def pre_mark_sessions_closing
+          candidates = [
+            session,
+            @log_channel.respond_to?(:connection) ? @log_channel.connection : nil,
+            @build_session&.value
+          ].compact.uniq
+
+          candidates.each do |sess|
+            mark_session_closing(sess) if sess.respond_to?(:instance_variable_set)
+          rescue StandardError => e
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.pre_mark_sessions_closing')
+          end
+        end
 
         def apply_qos_and_close(qos_channel)
           qos_channel.basic_qos(settings[:prefetch], true)

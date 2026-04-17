@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'net/http'
-require 'json'
 require 'legion/logging/helper'
 
 module Legion
@@ -40,7 +39,7 @@ module Legion
           req = Net::HTTP::Put.new(uri)
           req.basic_auth(user, pass)
           req.content_type = 'application/json'
-          req.body = ::JSON.dump(body)
+          req.body = Legion::JSON.dump(body)
 
           http = Net::HTTP.new(uri.host, uri.port)
           http.open_timeout = 5

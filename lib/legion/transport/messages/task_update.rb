@@ -27,6 +27,13 @@ module Legion
           task = ['task.scheduled', 'task.queued', 'task.completed', 'task.exception', 'task.delayed']
           conditioner + transformer + task
         end
+
+        def validate
+          raise Legion::Exception::InvalidTaskId unless @options[:task_id].is_a?(Integer) && @options[:task_id].positive?
+          raise Legion::Exception::InvalidTaskStatus unless valid_status.include?(@options[:status])
+
+          @valid = true
+        end
       end
     end
   end

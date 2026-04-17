@@ -90,6 +90,8 @@ module Legion
           @options[:ttl]
         elsif Legion::Transport.settings[:messages].key? :expiration
           Legion::Transport.settings[:messages][:expiration]
+        elsif Legion::Transport.settings[:messages].key? :ttl
+          Legion::Transport.settings[:messages][:ttl]
         end
       end
 
@@ -267,9 +269,14 @@ module Legion
         return unless defined?(Legion::Transport::Spool)
 
         Legion::Transport::Spool.write(
-          exchange:    exchange_name_for_spool,
-          routing_key: routing_key || '',
-          payload:     message
+          exchange:       exchange_name_for_spool,
+          routing_key:    routing_key || '',
+          payload:        message,
+          headers:        @options[:headers],
+          priority:       priority,
+          message_id:     message_id,
+          correlation_id: correlation_id,
+          persistent:     persistent
         )
         log.info("Message spooled due to: #{error.message}")
       rescue StandardError => e

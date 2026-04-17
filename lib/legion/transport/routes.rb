@@ -132,7 +132,7 @@ module Legion
             halt 422, json_error('missing_field', 'routing_key is required', status_code: 422)
           end
 
-          message = Legion::Transport::Messages::Dynamic.new(
+          message = Legion::Transport::Messages::Direct.new(
             exchange: body[:exchange], routing_key: body[:routing_key], **(body[:payload] || {})
           )
           message.publish
