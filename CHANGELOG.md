@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.4.20] - 2026-04-17
+
+### Fixed
+- `Connection.channel` now raises `IOError` when the session is nil (during `force_reconnect` teardown) or not open (during Bunny automatic recovery). Both cases previously surfaced as unhandled `NoMethodError`/`RuntimeError` that bypassed `Message#publish`'s spool rescue. Messages are now spooled cleanly during the entire recovery window. (Fixes #27)
+- `Connection.shutdown` now calls `pre_mark_sessions_closing` at the top of teardown, disabling Bunny auto-recovery on the primary session, log channel session, and build session before Vault can revoke the RabbitMQ credential. This stops the spurious reconnect loop when shutting down with Vault-managed credentials. (Fixes #28)
+
 ## [1.4.18] - 2026-04-13
 
 ### Added
