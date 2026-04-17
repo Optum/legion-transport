@@ -277,7 +277,7 @@ module Legion
         def pre_mark_sessions_closing
           candidates = [
             session,
-            @log_channel&.respond_to?(:connection) ? @log_channel.connection : nil,
+            @log_channel.respond_to?(:connection) ? @log_channel.connection : nil,
             @build_session&.value
           ].compact.uniq
 
