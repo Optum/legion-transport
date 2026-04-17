@@ -177,6 +177,9 @@ RSpec.describe 'Connection recovery handling' do
   describe '.shutdown' do
     it 'sets @shutting_down to prevent force_reconnect during teardown' do
       connection.instance_variable_set(:@session, nil)
+      connection.instance_variable_set(:@log_channel, nil)
+      connection.instance_variable_set(:@build_session, nil)
+      connection.instance_variable_set(:@pool, nil)
       connection.shutdown
       # After shutdown, @shutting_down should be reset to false (in ensure)
       expect(connection.instance_variable_get(:@shutting_down)).to be false
@@ -199,6 +202,49 @@ RSpec.describe 'Connection recovery handling' do
       connection.on_force_reconnect { 'a' }
       connection.on_force_reconnect { 'b' }
       expect(connection.instance_variable_get(:@reconnect_callbacks).size).to eq(2)
+    end
+  end
+
+  describe '.channel' do
+    before do
+      allow(connection).to receive(:lite_mode?).and_return(false)
+      connection.instance_variable_set(:@pool, nil)
+      connection.instance_variable_set(:@channel_thread, Concurrent::ThreadLocalVar.new(nil))
+    end
+
+    context 'when session is nil (force_reconnect teardown window)' do
+      it 'raises IOError instead of NoMethodError' do
+        connection.instance_variable_set(:@session, nil)
+        expect { connection.channel }.to raise_error(IOError, /transport session unavailable/)
+      end
+    end
+
+    context 'when session exists but is not open (Bunny recovery in progress)' do
+      it 'raises IOError instead of RuntimeError' do
+        recovering = instance_double('Bunny::Session', open?: false)
+        connection.instance_variable_set(:@session, Concurrent::AtomicReference.new(recovering))
+        expect { connection.channel }.to raise_error(IOError, /transport session unavailable/)
+      end
+    end
+  end
+
+  describe '.shutdown pre-marks sessions non-recoverable' do
+    it 'disables auto-recovery on the primary session before teardown' do
+      mock_session = double('session',
+                            open?:                 true,
+                            instance_variable_get: nil)
+      allow(mock_session).to receive(:instance_variable_get).with(:@status_mutex).and_return(nil)
+      allow(mock_session).to receive(:instance_variable_set)
+      allow(mock_session).to receive(:close)
+      connection.instance_variable_set(:@session, Concurrent::AtomicReference.new(mock_session))
+      connection.instance_variable_set(:@log_channel, nil)
+      connection.instance_variable_set(:@build_session, nil)
+      connection.instance_variable_set(:@pool, nil)
+
+      connection.shutdown
+
+      expect(mock_session).to have_received(:instance_variable_set)
+        .with(:@recovering_from_network_failure, false).at_least(:once)
     end
   end
 end
