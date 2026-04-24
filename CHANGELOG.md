@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.4.22] - 2026-04-24
+
+### Added
+- `x-legion-identity-trust` header on AMQP messages alongside existing `x-legion-identity-canonical-name`
+
 ## [1.4.21] - 2026-04-17
 
 ### Fixed
