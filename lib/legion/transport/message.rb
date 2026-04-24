@@ -220,6 +220,7 @@ module Legion
         id = Legion::Identity::Process.identity_hash
         {
           'x-legion-identity-canonical-name' => id[:canonical_name].to_s,
+          'x-legion-identity-trust'          => id[:trust].to_s,
           'x-legion-identity-id'             => id[:id].to_s,
           'x-legion-identity-kind'           => id[:kind].to_s,
           'x-legion-identity-mode'           => id[:mode].to_s,
