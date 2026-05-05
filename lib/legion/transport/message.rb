@@ -44,13 +44,13 @@ module Legion
         result = publish_result(exchange_dest, publish_options, return_state)
         return result if return_publish_result?(publish_options)
 
-        result
+        nil
       rescue Bunny::ConnectionClosedError, Bunny::ChannelAlreadyClosed, Bunny::ChannelError,
              Bunny::NetworkErrorWrapper, IOError, Timeout::Error => e
         handle_exception(e, level: :warn, handled: true, operation: 'transport.message.publish',
                          spooled: spool_enabled?(publish_options))
-        spool_message(e) if spool_enabled?(publish_options)
-        publish_failure_result(spool_enabled?(publish_options) ? :spooled : :failed, e)
+        spool_message(e, publish_options) if spool_enabled?(publish_options)
+        publish_failure_result(spool_enabled?(publish_options) ? :spooled : :failed, e, publish_options)
       end
 
       def publish_envelope_options(options)
@@ -74,7 +74,8 @@ module Legion
       end
 
       def publish_result(exchange_dest, options, return_state)
-        status = return_state[:returned] ? :unroutable : confirm_publish(exchange_dest, options)
+        confirmed_status = confirm_publish(exchange_dest, options)
+        status = return_state[:returned] ? :unroutable : confirmed_status
         ex_name = exchange_dest.respond_to?(:name) ? exchange_dest.name : exchange_dest.to_s
         log.debug "Published to exchange=#{ex_name} routing_key=#{options[:routing_key] || routing_key || ''} class=#{self.class.name}"
         {
@@ -95,7 +96,7 @@ module Legion
         confirm_channel = publish_channel(exchange_dest)
         return unless confirm_channel.respond_to?(:confirm_select)
 
-        confirm_channel.confirm_select if confirm_channel.respond_to?(:confirm_select)
+        confirm_channel.confirm_select
       end
 
       def confirm_publish(exchange_dest, options)
@@ -150,13 +151,13 @@ module Legion
           options[:spool] == false
       end
 
-      def publish_failure_result(status, error)
+      def publish_failure_result(status, error, options = @options)
         {
           status:         status,
           accepted:       false,
           error_class:    error.class.name,
           error:          error.message,
-          routing_key:    routing_key || '',
+          routing_key:    options[:routing_key] || routing_key || '',
           message_id:     message_id,
           correlation_id: correlation_id
         }
@@ -372,18 +373,18 @@ module Legion
                                                 default_affinity
       end
 
-      def spool_message(error)
+      def spool_message(error, options = @options)
         return unless defined?(Legion::Transport::Spool)
 
         Legion::Transport::Spool.write(
           exchange:       exchange_name_for_spool,
-          routing_key:    routing_key || '',
+          routing_key:    options[:routing_key] || routing_key || '',
           payload:        message,
           headers:        @options[:headers],
           priority:       priority,
           message_id:     message_id,
           correlation_id: correlation_id,
-          persistent:     persistent
+          persistent:     options.key?(:persistent) ? options[:persistent] : persistent
         )
         log.info("Message spooled due to: #{error.message}")
       rescue StandardError => e

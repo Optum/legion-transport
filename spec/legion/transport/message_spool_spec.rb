@@ -3,68 +3,75 @@
 require 'spec_helper'
 require 'tmpdir'
 
-class ReliablePublishHelpers
-  ReturnInfo = Struct.new(:reply_code, :reply_text, keyword_init: true)
-  ReturnProperties = Struct.new(:correlation_id, :message_id, keyword_init: true)
-
-  class Channel
-    attr_reader :wait_timeout
-
-    def initialize(confirm_result: true)
-      @confirm_result = confirm_result
-    end
-
-    def confirm_select
-      @confirm_selected = true
-    end
-
-    def confirm_selected?
-      @confirm_selected == true
-    end
-
-    def wait_for_confirms(timeout = nil)
-      @wait_timeout = timeout
-      @confirm_result
-    end
-
-    def on_return(&block)
-      @return_handler = block
-    end
-
-    def return_message(correlation_id:, message_id:)
-      @return_handler.call(
-        ReturnInfo.new(reply_code: 312, reply_text: 'NO_ROUTE'),
-        ReturnProperties.new(correlation_id: correlation_id, message_id: message_id),
-        '{}'
-      )
-    end
-  end
-
-  class Exchange
-    attr_reader :published_options, :channel
-
-    def initialize(channel:, raise_error: nil, force_return: false)
-      @channel = channel
-      @raise_error = raise_error
-      @force_return = force_return
-    end
-
-    def name
-      'task'
-    end
-
-    def publish(_payload, **options)
-      @published_options = options
-      raise @raise_error if @raise_error
-
-      channel.return_message(correlation_id: options[:correlation_id], message_id: options[:message_id]) if @force_return
-      true
-    end
-  end
-end
-
 RSpec.describe Legion::Transport::Message, 'spool fallback' do
   let(:spool_dir) { Dir.mktmpdir('legion-spool') }
+
+  # Scoped test doubles — defined inside the example group to avoid constant leaks
+  let(:return_info_class) { Struct.new(:reply_code, :reply_text, keyword_init: true) }
+  let(:return_properties_class) { Struct.new(:correlation_id, :message_id, keyword_init: true) }
+
+  let(:make_channel) do
+    ri_class = return_info_class
+    rp_class = return_properties_class
+    Class.new do
+      attr_reader :wait_timeout
+
+      define_method(:initialize) do |confirm_result: true|
+        @confirm_result = confirm_result
+        @ri_class = ri_class
+        @rp_class = rp_class
+      end
+
+      def confirm_select
+        @confirm_selected = true
+      end
+
+      def confirm_selected?
+        @confirm_selected == true
+      end
+
+      def wait_for_confirms(timeout = nil)
+        @wait_timeout = timeout
+        @confirm_result
+      end
+
+      def on_return(&block)
+        @return_handler = block
+      end
+
+      def return_message(correlation_id:, message_id:)
+        @return_handler.call(
+          @ri_class.new(reply_code: 312, reply_text: 'NO_ROUTE'),
+          @rp_class.new(correlation_id: correlation_id, message_id: message_id),
+          '{}'
+        )
+      end
+    end
+  end
+
+  let(:make_exchange) do
+    Class.new do
+      attr_reader :published_options, :channel
+
+      def initialize(channel:, raise_error: nil, force_return: false)
+        @channel = channel
+        @raise_error = raise_error
+        @force_return = force_return
+      end
+
+      def name
+        'task'
+      end
+
+      def publish(_payload, **options)
+        @published_options = options
+        raise @raise_error if @raise_error
+
+        channel.return_message(correlation_id: options[:correlation_id], message_id: options[:message_id]) if @force_return
+        true
+      end
+    end
+  end
 
   before do
     Legion::Transport::Spool.reset!
@@ -89,8 +96,8 @@ RSpec.describe Legion::Transport::Message, 'spool fallback' do
   end
 
   it 'passes mandatory publish options and waits for publisher confirms' do
-    channel = ReliablePublishHelpers::Channel.new
-    exchange = ReliablePublishHelpers::Exchange.new(channel: channel)
+    channel = make_channel.new
+    exchange = make_exchange.new(channel: channel)
     msg = described_class.new(routing_key: 'test.run', function: 'test', correlation_id: 'corr-1')
     allow(msg).to receive(:exchange).and_return(exchange)
     allow(msg).to receive(:encode_message).and_return('{"test":true}')
@@ -105,8 +112,8 @@ RSpec.describe Legion::Transport::Message, 'spool fallback' do
   end
 
   it 'returns unroutable when mandatory publish is returned by the broker' do
-    channel = ReliablePublishHelpers::Channel.new
-    exchange = ReliablePublishHelpers::Exchange.new(channel: channel, force_return: true)
+    channel = make_channel.new
+    exchange = make_exchange.new(channel: channel, force_return: true)
     msg = described_class.new(routing_key: 'test.missing', function: 'test', correlation_id: 'corr-2')
     allow(msg).to receive(:exchange).and_return(exchange)
     allow(msg).to receive(:encode_message).and_return('{"test":true}')
@@ -121,8 +128,8 @@ RSpec.describe Legion::Transport::Message, 'spool fallback' do
 
   it 'does not spool when publish opts out of spool fallback' do
     error = Bunny::ConnectionClosedError.new('closed')
-    channel = ReliablePublishHelpers::Channel.new
-    exchange = ReliablePublishHelpers::Exchange.new(channel: channel, raise_error: error)
+    channel = make_channel.new
+    exchange = make_exchange.new(channel: channel, raise_error: error)
     msg = described_class.new(routing_key: 'test.live', function: 'test', correlation_id: 'corr-3')
     allow(msg).to receive(:exchange).and_return(exchange)
     allow(msg).to receive(:encode_message).and_return('{"test":true}')
