@@ -23,9 +23,10 @@ module Legion
         1_048_576
       end
 
-      def publish(options = @options)
+      def publish(options = nil)
         raise unless @valid
 
+        publish_options = options ? @options.merge(options) : @options
         validate_payload_size
         ex_class = exchange
         exchange_dest = if ex_class.respond_to?(:cached_instance)
@@ -35,25 +36,130 @@ module Legion
                         else
                           ex_class
                         end
+        return_state = {}
+        install_return_listener(exchange_dest, publish_options, return_state)
+        prepare_publisher_confirms(exchange_dest, publish_options)
         exchange_dest.publish(encode_message,
-                              routing_key:      routing_key || '',
-                              content_type:     options[:content_type] || content_type,
-                              content_encoding: options[:content_encoding] || content_encoding,
-                              type:             options[:type] || type,
-                              priority:         options[:priority] || priority,
-                              expiration:       options[:expiration] || expiration,
-                              headers:          headers,
-                              persistent:       persistent,
-                              message_id:       message_id,
-                              correlation_id:   correlation_id,
-                              app_id:           app_id,
-                              timestamp:        timestamp)
-        ex_name = exchange_dest.respond_to?(:name) ? exchange_dest.name : exchange_dest.to_s
-        log.debug "Published to exchange=#{ex_name} routing_key=#{routing_key || ''} class=#{self.class.name}"
+                              **publish_envelope_options(publish_options))
+        result = publish_result(exchange_dest, publish_options, return_state)
+        return result if return_publish_result?(publish_options)
+
+        result
       rescue Bunny::ConnectionClosedError, Bunny::ChannelAlreadyClosed, Bunny::ChannelError,
              Bunny::NetworkErrorWrapper, IOError, Timeout::Error => e
-        handle_exception(e, level: :warn, handled: true, operation: 'transport.message.publish', spooled: true)
-        spool_message(e)
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.message.publish',
+                         spooled: spool_enabled?(publish_options))
+        spool_message(e) if spool_enabled?(publish_options)
+        publish_failure_result(spool_enabled?(publish_options) ? :spooled : :failed, e)
+      end
+
+      def publish_envelope_options(options)
+        {
+          routing_key:      options[:routing_key] || routing_key || '',
+          content_type:     options[:content_type] || content_type,
+          content_encoding: options[:content_encoding] || content_encoding,
+          type:             options[:type] || type,
+          priority:         options[:priority] || priority,
+          expiration:       options[:expiration] || expiration,
+          headers:          headers,
+          persistent:       options.key?(:persistent) ? options[:persistent] : persistent,
+          message_id:       message_id,
+          correlation_id:   correlation_id,
+          reply_to:         reply_to,
+          app_id:           app_id,
+          timestamp:        timestamp
+        }.tap do |envelope|
+          envelope[:mandatory] = true if options[:mandatory] == true
+        end
+      end
+
+      def publish_result(exchange_dest, options, return_state)
+        status = return_state[:returned] ? :unroutable : confirm_publish(exchange_dest, options)
+        ex_name = exchange_dest.respond_to?(:name) ? exchange_dest.name : exchange_dest.to_s
+        log.debug "Published to exchange=#{ex_name} routing_key=#{options[:routing_key] || routing_key || ''} class=#{self.class.name}"
+        {
+          status:            status,
+          accepted:          status == :accepted,
+          exchange:          ex_name,
+          routing_key:       options[:routing_key] || routing_key || '',
+          message_id:        message_id,
+          return_reply_code: return_state[:reply_code],
+          return_reply_text: return_state[:reply_text],
+          correlation_id:    correlation_id
+        }.compact
+      end
+
+      def prepare_publisher_confirms(exchange_dest, options)
+        return unless options[:publisher_confirm] == true
+
+        confirm_channel = publish_channel(exchange_dest)
+        return unless confirm_channel.respond_to?(:confirm_select)
+
+        confirm_channel.confirm_select if confirm_channel.respond_to?(:confirm_select)
+      end
+
+      def confirm_publish(exchange_dest, options)
+        return :accepted unless options[:publisher_confirm] == true
+
+        confirm_channel = publish_channel(exchange_dest)
+        return :accepted unless confirm_channel.respond_to?(:wait_for_confirms)
+
+        timeout = options[:publish_confirm_timeout_ms]
+        confirmed = if timeout
+                      confirm_channel.wait_for_confirms(timeout.to_f / 1000.0)
+                    else
+                      confirm_channel.wait_for_confirms
+                    end
+        confirmed == false ? :nacked : :accepted
+      rescue Timeout::Error
+        :confirm_timeout
+      end
+
+      def publish_channel(exchange_dest)
+        return exchange_dest.channel if exchange_dest.respond_to?(:channel)
+
+        channel
+      end
+
+      def install_return_listener(exchange_dest, options, return_state)
+        return unless options[:mandatory] == true
+
+        return_channel = publish_channel(exchange_dest)
+        return unless return_channel.respond_to?(:on_return)
+
+        expected_correlation_id = correlation_id
+        expected_message_id = message_id
+        return_channel.on_return do |return_info, properties, _content|
+          next if properties.respond_to?(:correlation_id) && properties.correlation_id &&
+                  expected_correlation_id && properties.correlation_id != expected_correlation_id
+          next if properties.respond_to?(:message_id) && properties.message_id &&
+                  expected_message_id && properties.message_id != expected_message_id
+
+          return_state[:returned] = true
+          return_state[:reply_code] = return_info.reply_code if return_info.respond_to?(:reply_code)
+          return_state[:reply_text] = return_info.reply_text if return_info.respond_to?(:reply_text)
+        end
+      end
+
+      def spool_enabled?(options)
+        options.fetch(:spool, true) != false
+      end
+
+      def return_publish_result?(options)
+        options[:return_result] == true || options[:mandatory] == true || options[:publisher_confirm] == true ||
+          options[:spool] == false
+      end
+
+      def publish_failure_result(status, error)
+        {
+          status:         status,
+          accepted:       false,
+          error_class:    error.class.name,
+          error:          error.message,
+          routing_key:    routing_key || '',
+          message_id:     message_id,
+          correlation_id: correlation_id
+        }
       end
 
       def app_id

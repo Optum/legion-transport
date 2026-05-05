@@ -7,3 +7,12 @@ module Legion
     class PayloadTooLarge < StandardError; end
   end
 end
+
+unless defined?(Bunny)
+  module Bunny
+    class ConnectionClosedError < StandardError; end
+    class ChannelAlreadyClosed < StandardError; end
+    class ChannelError < StandardError; end
+    class NetworkErrorWrapper < StandardError; end
+  end
+end

@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [1.4.22] - 2026-04-25
+
+### Added
+- `Message#publish` now supports live-request reliability options: `mandatory: true`, `publisher_confirm: true`, `publish_confirm_timeout_ms:`, `spool: false`, and structured publish results with `:accepted`, `:unroutable`, `:nacked`, `:confirm_timeout`, `:spooled`, or `:failed` status.
+- Structured publish result hash: `{ status:, accepted:, exchange:, routing_key:, message_id:, correlation_id:, return_reply_code:, return_reply_text: }` returned when any reliability option is active.
+- `reply_to:` field included in AMQP envelope options for RPC-style request/reply patterns.
+- `routing_key:` override in publish options allows callers to redirect a message at publish time without constructing a new message instance.
+- `persistent:` can now be overridden per-publish via options (previously only set at message construction).
+
+### Changed
+- `Message#publish` signature changed from `publish(options = @options)` to `publish(options = nil)` — passed options now **merge** with default `@options` instead of replacing them outright. Existing callers passing no arguments are unaffected.
+
 ## [1.4.21] - 2026-04-17
 
 ### Fixed
