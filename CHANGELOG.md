@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [1.4.22] - 2026-04-25
+## [1.4.23] - 2026-05-05
 
 ### Added
 - `Message#publish` now supports live-request reliability options: `mandatory: true`, `publisher_confirm: true`, `publish_confirm_timeout_ms:`, `spool: false`, and structured publish results with `:accepted`, `:unroutable`, `:nacked`, `:confirm_timeout`, `:spooled`, or `:failed` status.
@@ -13,6 +13,11 @@
 
 ### Changed
 - `Message#publish` signature changed from `publish(options = @options)` to `publish(options = nil)` — passed options now **merge** with default `@options` instead of replacing them outright. Existing callers passing no arguments are unaffected.
+
+## [1.4.22] - 2026-04-24
+
+### Added
+- `x-legion-identity-trust` header on AMQP messages alongside existing `x-legion-identity-canonical-name`
 
 ## [1.4.21] - 2026-04-17
 
