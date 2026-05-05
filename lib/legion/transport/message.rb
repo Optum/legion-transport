@@ -112,7 +112,8 @@ module Legion
                       confirm_channel.wait_for_confirms
                     end
         confirmed == false ? :nacked : :accepted
-      rescue Timeout::Error
+      rescue Timeout::Error => e
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.message.confirm_publish')
         :confirm_timeout
       end
 

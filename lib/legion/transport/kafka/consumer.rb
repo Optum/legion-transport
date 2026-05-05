@@ -43,8 +43,8 @@ module Legion
                 commit_if_needed(consumer, count)
                 break if max_messages && count >= max_messages
               end
-            rescue StopIteration
-              # clean exit from consumer loop
+            rescue StopIteration => e
+              handle_exception(e, level: :warn, handled: true, operation: 'transport.kafka.consumer.loop_exit')
             ensure
               consumer.close
             end
@@ -178,7 +178,7 @@ module Legion
             result = consumer.offsets_for_times(offsets_for_times)
             result.to_h[topic]&.first&.last || 0
           rescue StandardError => e
-            handle_exception(e, level: :debug, handled: true, operation: 'transport.kafka.consumer.resolve_offset',
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.kafka.consumer.resolve_offset',
                              topic: topic)
             0
           end

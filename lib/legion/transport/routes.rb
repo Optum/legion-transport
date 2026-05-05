@@ -52,7 +52,8 @@ module Legion
 
               begin
                 parsed = Legion::JSON.load(raw)
-              rescue StandardError
+              rescue StandardError => e
+                handle_exception(e, level: :warn, handled: true, operation: :parse_request_body)
                 halt 400, { 'Content-Type' => 'application/json' },
                      Legion::JSON.dump({ error: { code: 'invalid_json', message: 'request body is not valid JSON' } })
               end
@@ -78,7 +79,7 @@ module Legion
                          .map { |klass| { name: klass.name } }
                          .sort_by { |h| h[:name].to_s }
             rescue NameError => e
-              handle_exception(e, level: :debug, handled: true, operation: :transport_subclasses)
+              handle_exception(e, level: :warn, handled: true, operation: :transport_subclasses)
               []
             end
           end
@@ -90,19 +91,19 @@ module Legion
           connected = begin
             Legion::Settings[:transport][:connected]
           rescue StandardError => e
-            handle_exception(e, level: :debug, handled: true, operation: :transport_status_connected)
+            handle_exception(e, level: :warn, handled: true, operation: :transport_status_connected)
             false
           end
           session_open = begin
             Legion::Transport::Connection.session_open?
           rescue StandardError => e
-            handle_exception(e, level: :debug, handled: true, operation: :transport_status_session_open)
+            handle_exception(e, level: :warn, handled: true, operation: :transport_status_session_open)
             false
           end
           channel_open = begin
             Legion::Transport::Connection.channel_open?
           rescue StandardError => e
-            handle_exception(e, level: :debug, handled: true, operation: :transport_status_channel_open)
+            handle_exception(e, level: :warn, handled: true, operation: :transport_status_channel_open)
             false
           end
           connector = defined?(Legion::Transport::TYPE) ? Legion::Transport::TYPE.to_s : 'unknown'

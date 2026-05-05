@@ -29,7 +29,8 @@ module Legion
             report = delivery_handle.wait(max_wait_timeout: delivery_timeout)
             log_publish(topic, key, report)
             { topic: report.topic_name, partition: report.partition, offset: report.offset }
-          rescue Legion::Transport::Kafka::PublishError
+          rescue Legion::Transport::Kafka::PublishError => e
+            handle_exception(e, level: :error, handled: false, operation: 'transport.kafka.producer.publish')
             raise
           rescue StandardError => e
             handle_exception(e, level: :error, handled: false, operation: 'transport.kafka.producer.publish',
@@ -124,7 +125,7 @@ module Legion
 
             Legion::JSON.dump(payload)
           rescue StandardError => e
-            handle_exception(e, level: :debug, handled: true, operation: 'transport.kafka.producer.encode')
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.kafka.producer.encode')
             payload.to_s
           end
 

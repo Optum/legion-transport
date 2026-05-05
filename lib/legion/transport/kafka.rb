@@ -40,7 +40,7 @@ module Legion
           require_rdkafka
           true
         rescue Legion::Transport::Kafka::UnavailableError => e
-          handle_exception(e, level: :debug, handled: true, operation: 'transport.kafka.enabled')
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.kafka.enabled')
           false
         end
 
@@ -122,7 +122,7 @@ module Legion
         def kafka_settings
           Legion::Settings[:transport][:kafka]
         rescue StandardError => e
-          handle_exception(e, level: :debug, handled: true, operation: 'transport.kafka.settings')
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.kafka.settings')
           Legion::Transport::Kafka::DEFAULTS
         end
 
@@ -143,7 +143,7 @@ module Legion
         def require_rdkafka
           require 'rdkafka'
         rescue LoadError => e
-          handle_exception(e, level: :debug, handled: true, operation: 'transport.kafka.require_rdkafka')
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.kafka.require_rdkafka')
           raise Legion::Transport::Kafka::UnavailableError,
                 'rdkafka gem is required for Kafka support — add gem "rdkafka" to your Gemfile'
         end

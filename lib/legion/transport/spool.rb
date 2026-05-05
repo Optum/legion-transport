@@ -75,7 +75,7 @@ module Legion
             stream_lines(file) { n += 1 }
             n
           rescue StandardError => e
-            handle_exception(e, level: :debug, handled: true, operation: 'transport.spool.count', file: file)
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.spool.count', file: file)
             0
           end
         end
@@ -90,7 +90,7 @@ module Legion
             File.delete(file)
             log.info "Evicted stale spool file=#{file}"
           rescue StandardError => e
-            handle_exception(e, level: :debug, handled: true, operation: 'transport.spool.evict_stale', file: file)
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.spool.evict_stale', file: file)
             nil
           end
         end
@@ -138,7 +138,7 @@ module Legion
           total = files.sum do |f|
             File.size(f)
           rescue StandardError => e
-            handle_exception(e, level: :debug, handled: true, operation: 'transport.spool.over_limits', file: f)
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.spool.over_limits', file: f)
             0
           end
           total >= @max_total_bytes
@@ -155,7 +155,7 @@ module Legion
               File.delete(oldest)
               log.info "Evicted oldest spool file=#{oldest}"
             rescue StandardError => e
-              handle_exception(e, level: :debug, handled: true, operation: 'transport.spool.evict_oldest')
+              handle_exception(e, level: :warn, handled: true, operation: 'transport.spool.evict_oldest')
               break
             end
           end
@@ -165,7 +165,7 @@ module Legion
           files.sum do |f|
             File.size(f)
           rescue StandardError => e
-            handle_exception(e, level: :debug, handled: true, operation: 'transport.spool.total_bytes', file: f)
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.spool.total_bytes', file: f)
             0
           end
         end
