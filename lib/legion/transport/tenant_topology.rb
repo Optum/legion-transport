@@ -46,8 +46,6 @@ module Legion
       end
 
       private_class_method def self.transport_settings
-        return {} unless defined?(Legion::Settings)
-
         Legion::Settings[:transport] || {}
       rescue StandardError => e
         handle_exception(e, level: :warn, handled: true, operation: :tenant_topology_transport_settings)

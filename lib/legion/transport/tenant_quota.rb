@@ -73,8 +73,6 @@ module Legion
         end
 
         def quota_settings(tenant_id)
-          return nil unless defined?(Legion::Settings)
-
           Legion::Settings.dig(:transport, :tenant_topology, :quotas, tenant_id.to_sym)
         rescue StandardError => e
           handle_exception(e, level: :warn, handled: true, operation: :tenant_quota_settings, tenant_id: tenant_id)

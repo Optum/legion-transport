@@ -73,7 +73,7 @@ module Legion
                          .map { |klass| { name: klass.name } }
                          .sort_by { |h| h[:name].to_s }
             rescue NameError => e
-              Legion::Logging.debug "Transport routes: transport_subclasses failed for #{base_class}: #{e.message}" if defined?(Legion::Logging)
+              Legion::Logging.debug "Transport routes: transport_subclasses failed for #{base_class}: #{e.message}"
               []
             end
           end
@@ -85,19 +85,19 @@ module Legion
           connected = begin
             Legion::Settings[:transport][:connected]
           rescue StandardError => e
-            Legion::Logging.debug "Transport#status failed to read connected setting: #{e.message}" if defined?(Legion::Logging)
+            Legion::Logging.debug "Transport#status failed to read connected setting: #{e.message}"
             false
           end
           session_open = begin
             Legion::Transport::Connection.session_open?
           rescue StandardError => e
-            Legion::Logging.debug "Transport#status failed to check session_open: #{e.message}" if defined?(Legion::Logging)
+            Legion::Logging.debug "Transport#status failed to check session_open: #{e.message}"
             false
           end
           channel_open = begin
             Legion::Transport::Connection.channel_open?
           rescue StandardError => e
-            Legion::Logging.debug "Transport#status failed to check channel_open: #{e.message}" if defined?(Legion::Logging)
+            Legion::Logging.debug "Transport#status failed to check channel_open: #{e.message}"
             false
           end
           connector = defined?(Legion::Transport::TYPE) ? Legion::Transport::TYPE.to_s : 'unknown'
@@ -121,14 +121,14 @@ module Legion
 
       def self.register_publish(app)
         app.post '/api/transport/publish' do
-          Legion::Logging.debug "API: POST /api/transport/publish params=#{params.keys}" if defined?(Legion::Logging)
+          Legion::Logging.debug "API: POST /api/transport/publish params=#{params.keys}"
           body = parse_request_body
           unless body[:exchange]
-            Legion::Logging.warn 'API POST /api/transport/publish returned 422: exchange is required' if defined?(Legion::Logging)
+            Legion::Logging.warn 'API POST /api/transport/publish returned 422: exchange is required'
             halt 422, json_error('missing_field', 'exchange is required', status_code: 422)
           end
           unless body[:routing_key]
-            Legion::Logging.warn 'API POST /api/transport/publish returned 422: routing_key is required' if defined?(Legion::Logging)
+            Legion::Logging.warn 'API POST /api/transport/publish returned 422: routing_key is required'
             halt 422, json_error('missing_field', 'routing_key is required', status_code: 422)
           end
 
@@ -136,10 +136,10 @@ module Legion
             exchange: body[:exchange], routing_key: body[:routing_key], **(body[:payload] || {})
           )
           message.publish
-          Legion::Logging.info "API: published message to exchange=#{body[:exchange]} routing_key=#{body[:routing_key]}" if defined?(Legion::Logging)
+          Legion::Logging.info "API: published message to exchange=#{body[:exchange]} routing_key=#{body[:routing_key]}"
           json_response({ published: true, exchange: body[:exchange], routing_key: body[:routing_key] }, status_code: 201)
         rescue StandardError => e
-          Legion::Logging.error "API POST /api/transport/publish: #{e.class} \u2014 #{e.message}" if defined?(Legion::Logging)
+          Legion::Logging.error "API POST /api/transport/publish: #{e.class} \u2014 #{e.message}"
           json_error('publish_error', e.message, status_code: 500)
         end
       end

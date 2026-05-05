@@ -11,8 +11,6 @@ module Legion
       # Override in your LEX to set a custom default message TTL for the extension.
       # Resolution chain: per-call :ttl option -> LEX override -> Settings -> nil (no expiration)
       def transport_default_ttl
-        return nil unless defined?(Legion::Settings)
-
         Legion::Settings.dig(:transport, :messages, :ttl)
       rescue StandardError => e
         handle_exception(e, level: :warn, handled: true, operation: :transport_default_ttl)
@@ -58,8 +56,6 @@ module Legion
       # --- Status ---
 
       def transport_connected?
-        return false unless defined?(Legion::Settings)
-
         !!Legion::Settings.dig(:transport, :connected)
       rescue StandardError => e
         handle_exception(e, level: :warn, handled: true, operation: :transport_connected)

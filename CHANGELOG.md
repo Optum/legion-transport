@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Removed
+- Unnecessary `defined?(Legion::Logging)` guards in routes.rb — legion-logging is a hard gemspec dependency
+- Unnecessary `defined?(Legion::Settings)` and `Legion.const_defined?('Settings')` guards in transport.rb, settings.rb, helper.rb, tenant_quota.rb, and tenant_topology.rb — legion-settings is a hard gemspec dependency
+
 ## [1.4.23] - 2026-05-05
 
 ### Added

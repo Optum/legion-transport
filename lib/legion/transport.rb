@@ -41,9 +41,7 @@ module Legion
       end
 
       def settings
-        return Legion::Settings[:transport] if Legion.const_defined?('Settings')
-
-        Legion::Transport::Settings.default
+        Legion::Settings[:transport]
       end
 
       private
