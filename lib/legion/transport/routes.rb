@@ -22,6 +22,7 @@ module Legion
       end
 
       def self.register_helpers(app)
+        app.helpers Legion::Logging::Helper
         register_json_helpers(app)
         register_transport_helpers(app)
       end
@@ -77,8 +78,7 @@ module Legion
                          .map { |klass| { name: klass.name } }
                          .sort_by { |h| h[:name].to_s }
             rescue NameError => e
-              Legion::Transport::Routes.handle_exception(e, level: :debug, handled: true,
-                                                            operation: :transport_subclasses)
+              handle_exception(e, level: :debug, handled: true, operation: :transport_subclasses)
               []
             end
           end
@@ -90,22 +90,19 @@ module Legion
           connected = begin
             Legion::Settings[:transport][:connected]
           rescue StandardError => e
-            Legion::Transport::Routes.handle_exception(e, level: :debug, handled: true,
-                                                          operation: :transport_status_connected)
+            handle_exception(e, level: :debug, handled: true, operation: :transport_status_connected)
             false
           end
           session_open = begin
             Legion::Transport::Connection.session_open?
           rescue StandardError => e
-            Legion::Transport::Routes.handle_exception(e, level: :debug, handled: true,
-                                                          operation: :transport_status_session_open)
+            handle_exception(e, level: :debug, handled: true, operation: :transport_status_session_open)
             false
           end
           channel_open = begin
             Legion::Transport::Connection.channel_open?
           rescue StandardError => e
-            Legion::Transport::Routes.handle_exception(e, level: :debug, handled: true,
-                                                          operation: :transport_status_channel_open)
+            handle_exception(e, level: :debug, handled: true, operation: :transport_status_channel_open)
             false
           end
           connector = defined?(Legion::Transport::TYPE) ? Legion::Transport::TYPE.to_s : 'unknown'
@@ -129,14 +126,14 @@ module Legion
 
       def self.register_publish(app)
         app.post '/api/transport/publish' do
-          Legion::Transport::Routes.log.debug "API: POST /api/transport/publish params=#{params.keys}"
+          log.debug "API: POST /api/transport/publish params=#{params.keys}"
           body = parse_request_body
           unless body[:exchange]
-            Legion::Transport::Routes.log.warn 'API POST /api/transport/publish returned 422: exchange is required'
+            log.warn 'API POST /api/transport/publish returned 422: exchange is required'
             halt 422, json_error('missing_field', 'exchange is required', status_code: 422)
           end
           unless body[:routing_key]
-            Legion::Transport::Routes.log.warn 'API POST /api/transport/publish returned 422: routing_key is required'
+            log.warn 'API POST /api/transport/publish returned 422: routing_key is required'
             halt 422, json_error('missing_field', 'routing_key is required', status_code: 422)
           end
 
@@ -144,11 +141,10 @@ module Legion
             exchange: body[:exchange], routing_key: body[:routing_key], **(body[:payload] || {})
           )
           message.publish
-          Legion::Transport::Routes.log.info "API: published message to exchange=#{body[:exchange]} routing_key=#{body[:routing_key]}"
+          log.info "API: published message to exchange=#{body[:exchange]} routing_key=#{body[:routing_key]}"
           json_response({ published: true, exchange: body[:exchange], routing_key: body[:routing_key] }, status_code: 201)
         rescue StandardError => e
-          Legion::Transport::Routes.handle_exception(e, level: :error, handled: true,
-                                                        operation: :transport_publish)
+          handle_exception(e, level: :error, handled: true, operation: :transport_publish)
           json_error('publish_error', e.message, status_code: 500)
         end
       end
