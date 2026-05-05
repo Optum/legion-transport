@@ -6,7 +6,7 @@ Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default
 require 'legion/transport'
 require 'legion/transport/connection'
 
-RSpec.describe 'Channel leak prevention' do
+RSpec.describe 'Channel leak prevention', :rabbitmq do
   before do
     Legion::Transport::Connection.setup
   end
