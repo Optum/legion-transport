@@ -6,7 +6,7 @@ Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default
 require 'legion/transport'
 require 'legion/transport/connection'
 
-RSpec.describe Legion::Transport::Connection do
+RSpec.describe Legion::Transport::Connection, :rabbitmq do
   it '.connector' do
     expect(Legion::Transport::Connection.connector).to eq Bunny
   end

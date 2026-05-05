@@ -7,7 +7,7 @@ require 'legion/transport'
 require 'legion/transport/common'
 require 'securerandom'
 
-RSpec.describe Legion::Transport::Common do
+RSpec.describe Legion::Transport::Common, :rabbitmq do
   it 'should work' do
     @common = Kernel.const_set('Test', Class.new)
     @common.extend Legion::Transport::Common

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'bunny/exceptions'
+
 module Legion
   module Transport
     class PoolTimeout < StandardError; end

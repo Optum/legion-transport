@@ -14,11 +14,19 @@ RSpec.describe Legion::Transport do
 
   it 'has a connector' do
     expect(Legion::Transport::CONNECTOR).not_to be nil
-    expect(Legion::Transport::CONNECTOR).to be Bunny
+    if ENV['LEGION_MODE'] == 'lite'
+      expect(Legion::Transport::CONNECTOR).to eq Legion::Transport::InProcess
+    else
+      expect(Legion::Transport::CONNECTOR).to be Bunny
+    end
   end
 
   it 'has a type' do
-    expect(Legion::Transport::TYPE).to eq 'bunny'
+    if ENV['LEGION_MODE'] == 'lite'
+      expect(Legion::Transport::TYPE).to eq 'local'
+    else
+      expect(Legion::Transport::TYPE).to eq 'bunny'
+    end
   end
 
   it 'has default settings' do

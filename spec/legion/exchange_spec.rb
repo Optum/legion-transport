@@ -6,7 +6,7 @@ Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default
 require 'legion/transport'
 require 'legion/transport/connection'
 
-RSpec.describe Legion::Transport::Exchange do
+RSpec.describe Legion::Transport::Exchange, :rabbitmq do
   it 'can init' do
     expect { Legion::Transport::Exchange.new('foobar') }.not_to raise_exception
   end

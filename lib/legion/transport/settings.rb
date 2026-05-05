@@ -13,7 +13,7 @@ module Legion
         host = ENV['transport.connection.host'] || '127.0.0.1'
         port = (ENV['transport.connection.port'] || DEFAULT_AMQP_PORT).to_i
 
-        existing = defined?(Legion::Settings) ? (Legion::Settings[:transport][:connection] || {}) : {}
+        existing = Legion::Settings[:transport][:connection] || {}
         extra_server  = existing[:server]
         extra_servers = existing[:servers] || []
         extra_hosts   = existing[:hosts] || []
@@ -145,7 +145,7 @@ module Legion
 end
 
 begin
-  Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default) if Legion.const_defined?('Settings')
+  Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default)
 rescue StandardError => e
   Legion::Transport::Settings.handle_exception(e, level: :fatal, handled: true, operation: 'transport.settings.merge')
 end

@@ -2,7 +2,7 @@
 
 require 'spec_helper'
 
-RSpec.describe Legion::Transport::Connection, 'cluster node rotation' do
+RSpec.describe Legion::Transport::Connection, 'cluster node rotation', :rabbitmq do
   before do
     described_class.instance_variable_set(:@session, nil)
     described_class.instance_variable_set(:@channel_thread, Concurrent::ThreadLocalVar.new(nil))
@@ -44,7 +44,7 @@ RSpec.describe Legion::Transport::Connection, 'cluster node rotation' do
   end
 end
 
-RSpec.describe Legion::Transport::Connection, 'failover' do
+RSpec.describe Legion::Transport::Connection, 'failover', :rabbitmq do
   before do
     described_class.instance_variable_set(:@session, nil)
     described_class.instance_variable_set(:@channel_thread, Concurrent::ThreadLocalVar.new(nil))

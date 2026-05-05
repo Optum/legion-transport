@@ -32,7 +32,7 @@ module Legion
 
           Legion::JSON.parse(@payload)
         rescue StandardError => e
-          handle_exception(e, level: :debug, handled: true, operation: 'transport.kafka.incoming_message.decoded_payload',
+          handle_exception(e, level: :warn, handled: true, operation: 'transport.kafka.incoming_message.decoded_payload',
                            topic: topic, offset: offset)
           @payload
         end

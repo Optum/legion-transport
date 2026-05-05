@@ -2,7 +2,7 @@
 
 Legion::Transport is the Ruby gem responsible for connecting LegionIO to its FIFO queue system (RabbitMQ over AMQP 0.9.1). It provides thread-safe connection management, exchange/queue abstractions, message publishing with optional encryption, and consumer wrappers.
 
-**Version**: 1.4.14
+**Version**: 1.4.23
 
 ## Features
 
@@ -13,6 +13,7 @@ Legion::Transport is the Ruby gem responsible for connecting LegionIO to its FIF
 - Dynamic credential retrieval from HashiCorp Vault
 - Auto-recovery on connection loss (configurable attempts, 5s shutdown timeout)
 - Dead letter exchange support
+- Reliable publish with publisher confirms, mandatory routing, and structured result reporting
 - Spool buffer for disk-backed message persistence when RabbitMQ is unavailable
 - `InProcess` adapter for lite mode (`LEGION_MODE=lite`): no RabbitMQ required, uses in-memory pub/sub
 - `Helper` mixin for LEX extensions: `transport_path`, `transport_class`, `messages`, `queues`, `exchanges`
@@ -65,6 +66,30 @@ Legion::Transport::Messages::Task.new(
   task_id: SecureRandom.uuid
 ).publish
 ```
+
+### Reliable Publish
+
+Pass reliability options to `#publish` to get structured feedback on message delivery:
+
+```ruby
+msg = Legion::Transport::Messages::Task.new(
+  function: 'process_order',
+  routing_key: 'orders.process',
+  correlation_id: SecureRandom.uuid
+)
+
+result = msg.publish(
+  mandatory: true,              # broker returns message if unroutable
+  publisher_confirm: true,      # wait for broker acknowledgment
+  publish_confirm_timeout_ms: 500, # confirm wait timeout
+  spool: false                  # disable disk spool on failure (fail fast)
+)
+
+result[:status]   # => :accepted, :unroutable, :nacked, :confirm_timeout, :spooled, or :failed
+result[:accepted] # => true/false
+```
+
+Options merge with the message's defaults — you can override `routing_key:` or `persistent:` per-publish without constructing a new message.
 
 ### Creating a Queue
 
