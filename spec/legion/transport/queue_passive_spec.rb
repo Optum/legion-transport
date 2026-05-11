@@ -9,10 +9,11 @@ RSpec.describe 'Queue passive declares (credential scoping)' do
     allow(Legion::Settings).to receive(:dig).with(:crypt, :vault, :dynamic_rmq_creds).and_return(enabled ? true : false)
   end
 
-  def stub_mode(infra: false, agent: false)
+  def stub_mode(infra: false, agent: false, worker: false)
     mode = Module.new
     mode.define_singleton_method(:infra?) { infra }
     mode.define_singleton_method(:agent?) { agent }
+    mode.define_singleton_method(:worker?) { worker }
     stub_const('Legion::Mode', mode)
   end
 
@@ -73,13 +74,18 @@ RSpec.describe 'Queue passive declares (credential scoping)' do
       expect(instance.send(:topology_mode?)).to be true
     end
 
-    it 'returns true for agent mode' do
-      stub_mode(infra: false, agent: true)
+    it 'returns false for agent mode' do
+      stub_mode(infra: false, agent: true, worker: false)
+      expect(instance.send(:topology_mode?)).to be false
+    end
+
+    it 'returns true for worker mode' do
+      stub_mode(infra: false, agent: false, worker: true)
       expect(instance.send(:topology_mode?)).to be true
     end
 
-    it 'returns false for worker mode' do
-      stub_mode(infra: false, agent: false)
+    it 'returns false when neither infra nor worker' do
+      stub_mode(infra: false, agent: false, worker: false)
       expect(instance.send(:topology_mode?)).to be false
     end
   end
@@ -150,10 +156,10 @@ RSpec.describe 'Queue passive declares (credential scoping)' do
         expect(instance.passive?).to be false
       end
 
-      it 'returns false for agent mode after identity resolves' do
+      it 'returns true for agent mode after identity resolves (agent is passive)' do
         stub_identity(resolved: true)
         stub_mode(infra: false, agent: true)
-        expect(instance.passive?).to be false
+        expect(instance.passive?).to be true
       end
 
       it 'returns true for worker mode on shared queue' do
@@ -242,10 +248,14 @@ RSpec.describe 'Queue passive declares (credential scoping)' do
       allow(dbl).to receive(:exchange_declare)
       allow(dbl).to receive(:queue_declare)
       allow(dbl).to receive(:queue_bind)
+      allow(dbl).to receive(:open?).and_return(false)
       dbl
     end
 
-    before { allow(instance).to receive(:channel).and_return(channel_double) }
+    before do
+      allow(Legion::Transport::Connection).to receive(:channel).and_return(channel_double)
+      allow(instance).to receive(:safely_close_channel)
+    end
 
     context 'when credential scoping is disabled' do
       before { stub_settings(false) }
@@ -284,12 +294,12 @@ RSpec.describe 'Queue passive declares (credential scoping)' do
         expect(channel_double).to have_received(:exchange_declare).with('github.dlx', 'fanout', anything)
       end
 
-      it 'creates DLX for agent mode after identity resolves' do
+      it 'skips DLX creation for agent mode (agent is not topology owner)' do
         stub_identity(resolved: true)
         stub_mode(infra: false, agent: true)
         merged_options = { arguments: { 'x-dead-letter-exchange': 'github.dlx' } }
         instance.ensure_dlx(merged_options)
-        expect(channel_double).to have_received(:exchange_declare).with('github.dlx', 'fanout', anything)
+        expect(channel_double).not_to have_received(:exchange_declare)
       end
     end
   end

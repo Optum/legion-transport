@@ -2,8 +2,17 @@
 
 ## [Unreleased]
 
+## [1.4.24] - 2026-05-11
+
+### Fixed
+- DLX exchange declarations now use an isolated channel to prevent cascading failures
+- Added self-healing delete-and-recreate logic for mismatched DLX exchanges (PreconditionFailed)
+- Added `exclusive: true` to Node and Agent queues for RabbitMQ 4.x compatibility (transient_nonexcl_queues deprecation)
+- Fixed `topology_mode?` to check `worker?` instead of `agent?` for exchange/queue declarations
+
 ### Changed
 - Routes module now uses `extend Legion::Logging::Helper` with `log.*` and `handle_exception` instead of direct `Legion::Logging` calls
+- TenantProvisioner DLX remains fanout (reverted from topic)
 
 ### Removed
 - Unnecessary `defined?(Legion::Logging)` guards in routes.rb — legion-logging is a hard gemspec dependency

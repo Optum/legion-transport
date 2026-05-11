@@ -89,12 +89,35 @@ module Legion
         dlx_name = merged_options.dig(:arguments, :'x-dead-letter-exchange')
         return if dlx_name.nil? || dlx_name.empty?
 
-        channel.exchange_declare(dlx_name, 'fanout', durable: true, auto_delete: false)
-        channel.queue_declare("#{dlx_name}.queue", durable: true, auto_delete: false,
-                                                    arguments: { 'x-queue-type': 'classic' })
-        channel.queue_bind("#{dlx_name}.queue", dlx_name, routing_key: '#')
+        dlx_ch = Legion::Transport::Connection.channel
+        declare_dlx(dlx_name, dlx_ch)
+      rescue Legion::Transport::CONNECTOR::PreconditionFailed => e
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.queue.ensure_dlx', dlx: dlx_name)
+        recreate_dlx(dlx_name)
       rescue StandardError => e
         handle_exception(e, level: :warn, handled: true, operation: 'transport.queue.ensure_dlx', dlx: dlx_name)
+      ensure
+        safely_close_channel(dlx_ch) if defined?(dlx_ch) && dlx_ch != @channel
+      end
+
+      def declare_dlx(dlx_name, dlx_channel)
+        dlx_channel.exchange_declare(dlx_name, 'fanout', durable: true, auto_delete: false)
+        dlx_channel.queue_declare("#{dlx_name}.queue", durable: true, auto_delete: false,
+                                                       arguments: { 'x-queue-type': 'classic' })
+        dlx_channel.queue_bind("#{dlx_name}.queue", dlx_name, routing_key: '#')
+      end
+
+      def recreate_dlx(dlx_name)
+        log.warn "DLX exchange #{dlx_name} exists with wrong parameters, deleting and recreating"
+        dlx_channel = Legion::Transport::Connection.channel
+        dlx_channel.exchange_delete(dlx_name)
+        safely_close_channel(dlx_channel)
+        dlx_channel = Legion::Transport::Connection.channel
+        declare_dlx(dlx_name, dlx_channel)
+      rescue StandardError => e
+        handle_exception(e, level: :warn, handled: true, operation: 'transport.queue.recreate_dlx', dlx: dlx_name)
+      ensure
+        safely_close_channel(dlx_channel) if defined?(dlx_channel)
       end
 
       def queue_name
@@ -142,7 +165,7 @@ module Legion
       def topology_mode?
         return true unless defined?(Legion::Mode)
 
-        Legion::Mode.infra? || Legion::Mode.agent?
+        Legion::Mode.infra? || Legion::Mode.worker?
       end
 
       def safely_close_channel(tmp_channel)

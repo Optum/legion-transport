@@ -18,7 +18,7 @@ module Legion
         end
 
         def queue_options
-          { durable: false, auto_delete: true, arguments: { 'x-dead-letter-exchange': 'agent.dlx', 'x-queue-type': 'classic' } }
+          { durable: false, auto_delete: true, exclusive: true, arguments: { 'x-dead-letter-exchange': 'agent.dlx', 'x-queue-type': 'classic' } }
         end
       end
     end

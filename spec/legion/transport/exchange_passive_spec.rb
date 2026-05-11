@@ -12,10 +12,11 @@ RSpec.describe 'Exchange passive declares (credential scoping)' do
   end
 
   # Helper to stub Legion::Mode
-  def stub_mode(infra: false, agent: false)
+  def stub_mode(infra: false, agent: false, worker: false)
     mode = Module.new
     mode.define_singleton_method(:infra?) { infra }
     mode.define_singleton_method(:agent?) { agent }
+    mode.define_singleton_method(:worker?) { worker }
     stub_const('Legion::Mode', mode)
   end
 
@@ -81,13 +82,18 @@ RSpec.describe 'Exchange passive declares (credential scoping)' do
       expect(instance.send(:topology_mode?)).to be true
     end
 
-    it 'returns true for agent mode' do
-      stub_mode(infra: false, agent: true)
+    it 'returns false for agent mode' do
+      stub_mode(infra: false, agent: true, worker: false)
+      expect(instance.send(:topology_mode?)).to be false
+    end
+
+    it 'returns true for worker mode' do
+      stub_mode(infra: false, agent: false, worker: true)
       expect(instance.send(:topology_mode?)).to be true
     end
 
-    it 'returns false for worker mode (neither infra nor agent)' do
-      stub_mode(infra: false, agent: false)
+    it 'returns false for neither infra nor worker' do
+      stub_mode(infra: false, agent: false, worker: false)
       expect(instance.send(:topology_mode?)).to be false
     end
   end
@@ -122,10 +128,10 @@ RSpec.describe 'Exchange passive declares (credential scoping)' do
         expect(instance.passive?).to be false
       end
 
-      it 'returns false for agent mode after identity resolves' do
+      it 'returns true for agent mode after identity resolves (agent is passive)' do
         stub_identity(resolved: true)
         stub_mode(infra: false, agent: true)
-        expect(instance.passive?).to be false
+        expect(instance.passive?).to be true
       end
 
       it 'returns true for worker mode after identity resolves' do

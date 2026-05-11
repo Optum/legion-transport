@@ -9,7 +9,7 @@ module Legion
         end
 
         def queue_options
-          { durable: false, auto_delete: true, arguments: { 'x-dead-letter-exchange': 'node.dlx' } }
+          { durable: false, auto_delete: true, exclusive: true, arguments: { 'x-dead-letter-exchange': 'node.dlx' } }
         end
       end
     end
