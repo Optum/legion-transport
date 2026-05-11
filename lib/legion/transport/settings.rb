@@ -98,7 +98,7 @@ module Legion
       def self.tenant_topology
         {
           enabled:          false,
-          prefix_format:    't.%<tenant_id>s.',
+          prefix_format:    't.%<tenant_id>s.%<name>s',
           shared_exchanges: %w[legion.control legion.health legion.audit],
           auto_provision:   true,
           quotas:           {}

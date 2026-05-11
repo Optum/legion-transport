@@ -16,13 +16,6 @@
 - Added `exclusive: true` to Node and Agent queues for RabbitMQ 4.x compatibility (transient_nonexcl_queues deprecation)
 - Fixed `topology_mode?` to check `worker?` instead of `agent?` for exchange/queue declarations
 
-### Changed
-- Routes module now uses `extend Legion::Logging::Helper` with `log.*` and `handle_exception` instead of direct `Legion::Logging` calls
-- TenantProvisioner DLX remains fanout (reverted from topic)
-
-### Removed
-- Unnecessary `defined?(Legion::Logging)` guards in routes.rb — legion-logging is a hard gemspec dependency
-- Unnecessary `defined?(Legion::Settings)` and `Legion.const_defined?('Settings')` guards in transport.rb, settings.rb, helper.rb, tenant_quota.rb, and tenant_topology.rb — legion-settings is a hard gemspec dependency
 
 ## [1.4.23] - 2026-05-05
 

@@ -89,7 +89,8 @@ module Legion
         dlx_name = merged_options.dig(:arguments, :'x-dead-letter-exchange')
         return if dlx_name.nil? || dlx_name.empty?
 
-        dlx_ch = Legion::Transport::Connection.channel
+        dlx_ch = nil
+        dlx_ch = Legion::Transport::Connection.session.create_channel
         declare_dlx(dlx_name, dlx_ch)
       rescue Legion::Transport::CONNECTOR::PreconditionFailed => e
         handle_exception(e, level: :warn, handled: true, operation: 'transport.queue.ensure_dlx', dlx: dlx_name)
@@ -97,7 +98,7 @@ module Legion
       rescue StandardError => e
         handle_exception(e, level: :warn, handled: true, operation: 'transport.queue.ensure_dlx', dlx: dlx_name)
       ensure
-        safely_close_channel(dlx_ch) if defined?(dlx_ch) && dlx_ch != @channel
+        dlx_ch&.close if dlx_ch&.open?
       end
 
       def declare_dlx(dlx_name, dlx_channel)
@@ -108,16 +109,17 @@ module Legion
       end
 
       def recreate_dlx(dlx_name)
-        log.warn "DLX exchange #{dlx_name} exists with wrong parameters, deleting and recreating"
-        dlx_channel = Legion::Transport::Connection.channel
-        dlx_channel.exchange_delete(dlx_name)
-        safely_close_channel(dlx_channel)
-        dlx_channel = Legion::Transport::Connection.channel
-        declare_dlx(dlx_name, dlx_channel)
+        log.warn "DLX #{dlx_name} exists with wrong parameters, deleting and recreating"
+        ch = Legion::Transport::Connection.session.create_channel
+        ch.exchange_delete(dlx_name)
+        ch.queue_delete("#{dlx_name}.queue")
+        ch.close
+        ch = Legion::Transport::Connection.session.create_channel
+        declare_dlx(dlx_name, ch)
       rescue StandardError => e
         handle_exception(e, level: :warn, handled: true, operation: 'transport.queue.recreate_dlx', dlx: dlx_name)
       ensure
-        safely_close_channel(dlx_channel) if defined?(dlx_channel)
+        ch&.close if ch&.open?
       end
 
       def queue_name
@@ -165,7 +167,7 @@ module Legion
       def topology_mode?
         return true unless defined?(Legion::Mode)
 
-        Legion::Mode.infra? || Legion::Mode.worker?
+        Legion::Mode.infra? || (Legion::Mode.respond_to?(:worker?) && Legion::Mode.worker?)
       end
 
       def safely_close_channel(tmp_channel)

@@ -253,7 +253,9 @@ RSpec.describe 'Queue passive declares (credential scoping)' do
     end
 
     before do
-      allow(Legion::Transport::Connection).to receive(:channel).and_return(channel_double)
+      session_double = instance_double('Bunny::Session')
+      allow(session_double).to receive(:create_channel).and_return(channel_double)
+      allow(Legion::Transport::Connection).to receive(:session).and_return(session_double)
       allow(instance).to receive(:safely_close_channel)
     end
 

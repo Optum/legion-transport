@@ -125,7 +125,7 @@ module Legion
       def topology_mode?
         return true unless defined?(Legion::Mode)
 
-        Legion::Mode.infra? || Legion::Mode.worker?
+        Legion::Mode.infra? || (Legion::Mode.respond_to?(:worker?) && Legion::Mode.worker?)
       end
 
       def safely_close_channel(error_channel)
