@@ -49,9 +49,49 @@ RSpec.describe Legion::Transport::TenantProvisioner do
         described_class.provision('abc123', channel: channel)
       end
     end
+
+    context 'channel leak prevention' do
+      before do
+        Legion::Settings[:transport][:tenant_topology] ||= {}
+        Legion::Settings[:transport][:tenant_topology][:enabled] = true
+      end
+
+      after do
+        Legion::Settings[:transport][:tenant_topology][:enabled] = false
+      end
+
+      it 'closes an internally-acquired channel even when provision raises' do
+        owned_channel = instance_double('Bunny::Channel')
+        allow(owned_channel).to receive(:topic).and_raise(StandardError, 'boom')
+        allow(owned_channel).to receive(:fanout)
+        allow(owned_channel).to receive(:respond_to?).with(:close).and_return(true)
+        allow(owned_channel).to receive(:close)
+
+        allow(Legion::Transport::Connection).to receive(:channel).and_return(owned_channel)
+
+        expect(owned_channel).to receive(:close)
+        expect { described_class.provision('abc123') }.to raise_error(StandardError, 'boom')
+      end
+    end
   end
 
   describe '.deprovision' do
+    context 'when tenant_topology is disabled' do
+      before do
+        Legion::Settings[:transport][:tenant_topology] ||= {}
+        Legion::Settings[:transport][:tenant_topology][:enabled] = false
+      end
+
+      it 'skips deprovision and does not raise' do
+        expect { described_class.deprovision('abc123', channel: channel) }.not_to raise_error
+      end
+
+      it 'does not attempt to delete any exchanges' do
+        expect(channel).not_to receive(:exchange_delete)
+        described_class.deprovision('abc123', channel: channel)
+      end
+    end
+
     context 'when tenant_topology is enabled' do
       before do
         Legion::Settings[:transport][:tenant_topology] ||= {}
@@ -79,6 +119,21 @@ RSpec.describe Legion::Transport::TenantProvisioner do
       it 'does not close the channel when channel is provided' do
         expect(channel).not_to receive(:close)
         described_class.deprovision('abc123', channel: channel)
+      end
+
+      it 'skips deprovision when tenant_id is nil' do
+        expect(channel).not_to receive(:exchange_delete)
+        described_class.deprovision(nil, channel: channel)
+      end
+
+      it 'skips deprovision when tenant_id is blank' do
+        expect(channel).not_to receive(:exchange_delete)
+        described_class.deprovision('', channel: channel)
+      end
+
+      it 'skips deprovision when tenant_id is "default"' do
+        expect(channel).not_to receive(:exchange_delete)
+        described_class.deprovision('default', channel: channel)
       end
     end
   end

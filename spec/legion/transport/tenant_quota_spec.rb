@@ -95,6 +95,48 @@ RSpec.describe Legion::Transport::TenantQuota do
           .to raise_error(Legion::Transport::TenantQuota::QuotaExceededError)
       end
     end
+
+    context 'per-tenant isolation (independent mutexes)' do
+      before do
+        Legion::Settings[:transport][:tenant_topology][:enabled] = true
+        Legion::Settings[:transport][:tenant_topology][:quotas] = {
+          tenant_a: { messages_per_second: 2 },
+          tenant_b: { messages_per_second: 2 }
+        }
+      end
+
+      it 'exhausting one tenant does not block another' do
+        2.times { described_class.check_publish('tenant_a') }
+        expect { described_class.check_publish('tenant_a') }
+          .to raise_error(described_class::QuotaExceededError)
+        expect(described_class.check_publish('tenant_b')).to be true
+      end
+    end
+  end
+
+  describe 'stale entry sweep' do
+    before do
+      Legion::Settings[:transport][:tenant_topology][:enabled] = true
+      Legion::Settings[:transport][:tenant_topology][:quotas] = {
+        stale_tenant: { messages_per_second: 100 }
+      }
+    end
+
+    it 'removes entries that have not been updated within STALE_SECONDS' do
+      described_class.check_publish('stale_tenant')
+
+      # Simulate the entry being very old by backdating updated_at
+      stale_window = described_class.send(:current_window) - (described_class::STALE_SECONDS + 1)
+      described_class.instance_variable_get(:@counters)['stale_tenant'][:updated_at] = stale_window
+
+      # Trigger sweep by making another call for a different tenant
+      allow(Legion::Settings).to receive(:dig)
+        .with(:transport, :tenant_topology, :quotas, :other_tenant)
+        .and_return({ messages_per_second: 100 })
+      described_class.check_publish('other_tenant')
+
+      expect(described_class.instance_variable_get(:@counters)).not_to have_key('stale_tenant')
+    end
   end
 
   describe '.reset!' do
@@ -106,6 +148,16 @@ RSpec.describe Legion::Transport::TenantQuota do
       described_class.check_publish('abc123')
       described_class.reset!
       expect(described_class.check_publish('abc123')).to be true
+    end
+
+    it 'clears per-tenant mutexes' do
+      Legion::Settings[:transport][:tenant_topology][:enabled] = true
+      Legion::Settings[:transport][:tenant_topology][:quotas] = {
+        abc123: { messages_per_second: 10 }
+      }
+      described_class.check_publish('abc123')
+      described_class.reset!
+      expect(described_class.instance_variable_get(:@mutexes)).to be_empty
     end
   end
 
