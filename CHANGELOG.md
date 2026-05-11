@@ -5,6 +5,12 @@
 ## [1.4.24] - 2026-05-11
 
 ### Fixed
+- `TenantProvisioner#provision` and `#deprovision` now use `Legion::Transport::Connection.channel` (the public API) instead of the non-existent `Legion::Transport.connection.create_channel`. (Closes #15)
+- `TenantProvisioner` now wraps internally-acquired channels in `ensure` blocks so channels are closed even when provision/deprovision raises. (Closes #15)
+- `TenantProvisioner#deprovision` now guards against accidental deletion of global exchanges: skips when topology is disabled, and refuses to delete when `tenant_id` is nil, blank, or `'default'`. (Closes #15)
+- `TenantTopology#shared?` no longer over-matches: previously `start_with?('legion.')` matched `legion.controlled`; now uses exact set membership with explicit dot-separated sub-path check (`name == entry || name.start_with?("#{entry}.")`). (Closes #15)
+- `TenantTopology` now reads `shared_exchanges` and `prefix_format` from `transport.tenant_topology` settings with sensible defaults, instead of hardcoding them. (Closes #15)
+- `TenantQuota` now uses per-tenant mutexes instead of a single global mutex, and sweeps stale counter entries (entries inactive for `STALE_SECONDS = 300`) to prevent unbounded map growth. (Closes #15)
 - DLX exchange declarations now use an isolated channel to prevent cascading failures
 - Added self-healing delete-and-recreate logic for mismatched DLX exchanges (PreconditionFailed)
 - Added `exclusive: true` to Node and Agent queues for RabbitMQ 4.x compatibility (transient_nonexcl_queues deprecation)

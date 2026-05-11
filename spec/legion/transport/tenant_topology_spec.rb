@@ -7,10 +7,14 @@ RSpec.describe Legion::Transport::TenantTopology do
   before do
     Legion::Settings[:transport][:tenant_topology] ||= {}
     Legion::Settings[:transport][:tenant_topology][:enabled] = false
+    Legion::Settings[:transport][:tenant_topology].delete(:shared_exchanges)
+    Legion::Settings[:transport][:tenant_topology].delete(:prefix_format)
   end
 
   after do
     Legion::Settings[:transport][:tenant_topology][:enabled] = false
+    Legion::Settings[:transport][:tenant_topology].delete(:shared_exchanges)
+    Legion::Settings[:transport][:tenant_topology].delete(:prefix_format)
   end
 
   describe '.enabled?' do
@@ -30,8 +34,11 @@ RSpec.describe Legion::Transport::TenantTopology do
   end
 
   describe '.shared?' do
-    it 'returns true for legion.control prefix' do
+    it 'returns true for exact legion.control match' do
       expect(described_class.shared?('legion.control')).to be true
+    end
+
+    it 'returns true for legion.control sub-path' do
       expect(described_class.shared?('legion.control.sub')).to be true
     end
 
@@ -46,6 +53,24 @@ RSpec.describe Legion::Transport::TenantTopology do
     it 'returns false for non-shared names' do
       expect(described_class.shared?('tasks')).to be false
       expect(described_class.shared?('results')).to be false
+    end
+
+    it 'does not over-match names that merely start with a shared prefix string' do
+      expect(described_class.shared?('legion.controlled')).to be false
+      expect(described_class.shared?('legion.controls')).to be false
+    end
+
+    context 'when shared_exchanges is configured in settings' do
+      before do
+        Legion::Settings[:transport][:tenant_topology][:shared_exchanges] = %w[custom.shared another.shared]
+      end
+
+      it 'uses configured list instead of defaults' do
+        expect(described_class.shared?('custom.shared')).to be true
+        expect(described_class.shared?('another.shared')).to be true
+        expect(described_class.shared?('custom.shared.sub')).to be true
+        expect(described_class.shared?('legion.control')).to be false
+      end
     end
   end
 
@@ -83,6 +108,20 @@ RSpec.describe Legion::Transport::TenantTopology do
 
       it 'does not prefix shared exchange subnames' do
         expect(described_class.exchange_name('legion.control.something', tenant_id: 'abc123')).to eq('legion.control.something')
+      end
+
+      it 'prefixes exchanges that merely start with a shared prefix string (not a real subpath)' do
+        expect(described_class.exchange_name('legion.controlled', tenant_id: 'abc123')).to eq('t.abc123.legion.controlled')
+      end
+
+      context 'when prefix_format is configured' do
+        before do
+          Legion::Settings[:transport][:tenant_topology][:prefix_format] = 'tenants/%<tenant_id>s/%<name>s'
+        end
+
+        it 'uses the configured prefix format' do
+          expect(described_class.exchange_name('tasks', tenant_id: 'abc123')).to eq('tenants/abc123/tasks')
+        end
       end
     end
   end

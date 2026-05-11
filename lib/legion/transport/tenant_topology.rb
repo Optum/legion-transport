@@ -7,7 +7,8 @@ module Legion
     module TenantTopology
       extend Legion::Logging::Helper
 
-      SHARED_EXCHANGES = %w[legion.control legion.health legion.audit].freeze
+      DEFAULT_SHARED_EXCHANGES = %w[legion.control legion.health legion.audit].freeze
+      DEFAULT_PREFIX_FORMAT = 't.%<tenant_id>s.%<name>s'
 
       def self.exchange_name(base_name, tenant_id: nil)
         return base_name unless enabled?
@@ -15,7 +16,7 @@ module Legion
         tid = tenant_id || current_tenant_id
         return base_name if tid.nil? || tid == 'default' || shared?(base_name)
 
-        "t.#{tid}.#{base_name}"
+        format(prefix_format, tenant_id: tid, name: base_name)
       end
 
       def self.queue_name(base_name, tenant_id: nil)
@@ -24,11 +25,13 @@ module Legion
         tid = tenant_id || current_tenant_id
         return base_name if tid.nil? || tid == 'default'
 
-        "t.#{tid}.#{base_name}"
+        format(prefix_format, tenant_id: tid, name: base_name)
       end
 
       def self.shared?(name)
-        SHARED_EXCHANGES.any? { |prefix| name.start_with?(prefix) }
+        configured_shared_exchanges.any? do |entry|
+          name == entry || name.start_with?("#{entry}.")
+        end
       end
 
       def self.enabled?
@@ -43,6 +46,22 @@ module Legion
       rescue StandardError => e
         handle_exception(e, level: :warn, handled: true, operation: :tenant_topology_current_tenant_id)
         nil
+      end
+
+      private_class_method def self.prefix_format
+        settings = transport_settings
+        return DEFAULT_PREFIX_FORMAT unless settings.is_a?(Hash)
+
+        settings.dig(:tenant_topology, :prefix_format) || DEFAULT_PREFIX_FORMAT
+      end
+
+      private_class_method def self.configured_shared_exchanges
+        settings = transport_settings
+        return DEFAULT_SHARED_EXCHANGES unless settings.is_a?(Hash)
+
+        Array(settings.dig(:tenant_topology, :shared_exchanges)).tap do |arr|
+          return DEFAULT_SHARED_EXCHANGES if arr.empty?
+        end
       end
 
       private_class_method def self.transport_settings

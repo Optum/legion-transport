@@ -12,9 +12,11 @@ module Legion
       end
 
       WINDOW_SECONDS = 1
+      STALE_SECONDS  = 300
 
-      @counters = {}
-      @mutex = Mutex.new
+      @counters      = {}
+      @mutexes       = {}
+      @registry_mutex = Mutex.new
 
       class << self
         def check_publish(tenant_id, message_size: 0)
@@ -25,13 +27,15 @@ module Legion
           return true if msg_limit.nil? && size_limit.nil?
 
           now = current_window
-          @mutex.synchronize do
-            @counters[tenant_id] ||= { window: now, count: 0, bytes: 0 }
+
+          tenant_mutex(tenant_id).synchronize do
+            @counters[tenant_id] ||= { window: now, count: 0, bytes: 0, updated_at: now }
             entry = @counters[tenant_id]
             if entry[:window] != now
-              entry[:window] = now
-              entry[:count] = 0
-              entry[:bytes] = 0
+              entry[:window]     = now
+              entry[:count]      = 0
+              entry[:bytes]      = 0
+              entry[:updated_at] = now
             end
 
             if msg_limit && entry[:count] >= msg_limit
@@ -44,9 +48,12 @@ module Legion
               raise QuotaExceededError, "Tenant #{tenant_id} exceeded byte rate quota (#{size_limit} bytes/s)"
             end
 
-            entry[:count] += 1
-            entry[:bytes] += message_size
+            entry[:count]      += 1
+            entry[:bytes]      += message_size
+            entry[:updated_at]  = now
           end
+
+          sweep_stale!
           true
         end
 
@@ -55,10 +62,36 @@ module Legion
         end
 
         def reset!
-          @mutex.synchronize { @counters.clear }
+          @registry_mutex.synchronize do
+            @counters.clear
+            @mutexes.clear
+          end
         end
 
         private
+
+        def tenant_mutex(tenant_id)
+          @registry_mutex.synchronize do
+            @mutexes[tenant_id] ||= Mutex.new
+          end
+        end
+
+        def sweep_stale!
+          stale_cutoff = current_window - (STALE_SECONDS / WINDOW_SECONDS)
+
+          stale_ids = @registry_mutex.synchronize do
+            @counters.each_with_object([]) do |(tid, entry), ids|
+              ids << tid if entry[:updated_at] && entry[:updated_at] < stale_cutoff
+            end
+          end
+
+          stale_ids.each do |tid|
+            @registry_mutex.synchronize do
+              @counters.delete(tid)
+              @mutexes.delete(tid)
+            end
+          end
+        end
 
         def current_window
           (::Time.now.to_f / WINDOW_SECONDS).floor
