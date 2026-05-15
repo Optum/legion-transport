@@ -326,7 +326,7 @@ module Legion
 
       def identity_headers
         id = Legion::Identity::Process.identity_hash
-        {
+        headers = {
           'x-legion-identity-canonical-name' => id[:canonical_name].to_s,
           'x-legion-identity-trust'          => id[:trust].to_s,
           'x-legion-identity-id'             => id[:id].to_s,
@@ -334,6 +334,9 @@ module Legion
           'x-legion-identity-mode'           => id[:mode].to_s,
           'x-legion-identity-source'         => id[:source].to_s
         }
+        headers['x-legion-identity-db-principal-id'] = id[:db_principal_id] if id[:db_principal_id]
+        headers['x-legion-identity-db-identity-id']  = id[:db_identity_id]  if id[:db_identity_id]
+        headers
       end
 
       def inject_identity_headers
