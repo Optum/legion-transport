@@ -2,6 +2,6 @@
 
 module Legion
   module Transport
-    VERSION = '1.4.24'
+    VERSION = '1.4.25'
   end
 end
