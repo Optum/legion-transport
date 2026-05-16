@@ -19,11 +19,8 @@ RSpec.describe Legion::Transport::Connection::Vault do
 
   describe '#vault_pki_tls_options' do
     context 'when vault_pki is disabled in settings' do
-      before do
-        allow(Legion::Settings).to receive(:[]).with(:transport).and_return(
-          { tls: { vault_pki: false } }
-        )
-      end
+      before { Legion::Settings[:transport][:tls] = { vault_pki: false } }
+      after  { Legion::Settings[:transport].delete(:tls) }
 
       it 'returns empty hash' do
         expect(test_obj.vault_pki_tls_options).to eq({})
@@ -32,11 +29,10 @@ RSpec.describe Legion::Transport::Connection::Vault do
 
     context 'when vault_pki is enabled but Crypt::Mtls is not defined' do
       before do
-        allow(Legion::Settings).to receive(:[]).with(:transport).and_return(
-          { tls: { vault_pki: true } }
-        )
+        Legion::Settings[:transport][:tls] = { vault_pki: true }
         hide_const('Legion::Crypt::Mtls') if defined?(Legion::Crypt::Mtls)
       end
+      after { Legion::Settings[:transport].delete(:tls) }
 
       it 'returns empty hash' do
         expect(test_obj.vault_pki_tls_options).to eq({})
@@ -45,13 +41,12 @@ RSpec.describe Legion::Transport::Connection::Vault do
 
     context 'when vault_pki is enabled but Mtls.enabled? is false' do
       before do
-        allow(Legion::Settings).to receive(:[]).with(:transport).and_return(
-          { tls: { vault_pki: true } }
-        )
+        Legion::Settings[:transport][:tls] = { vault_pki: true }
         mtls = Module.new
         stub_const('Legion::Crypt::Mtls', mtls)
         allow(Legion::Crypt::Mtls).to receive(:enabled?).and_return(false)
       end
+      after { Legion::Settings[:transport].delete(:tls) }
 
       it 'returns empty hash' do
         expect(test_obj.vault_pki_tls_options).to eq({})
@@ -60,19 +55,17 @@ RSpec.describe Legion::Transport::Connection::Vault do
 
     context 'when vault_pki and Mtls.enabled? are both true' do
       before do
-        allow(Legion::Settings).to receive(:[]).with(:transport).and_return(
-          { tls: { vault_pki: true }, connection: { host: '127.0.0.1' } }
-        )
-        allow(Legion::Settings).to receive(:[]).with(:client).and_return({ name: 'test-node' })
+        Legion::Settings[:transport][:tls] = { vault_pki: true }
         mtls = Module.new
         stub_const('Legion::Crypt::Mtls', mtls)
         allow(Legion::Crypt::Mtls).to receive(:enabled?).and_return(true)
         allow(Legion::Crypt::Mtls).to receive(:issue_cert).and_return(cert_data)
       end
+      after { Legion::Settings[:transport].delete(:tls) }
 
       it 'calls Mtls.issue_cert with the node name' do
         expect(Legion::Crypt::Mtls).to receive(:issue_cert).with(
-          common_name: 'test-node'
+          common_name: Legion::Settings[:client][:name]
         ).and_return(cert_data)
         test_obj.vault_pki_tls_options
       end
@@ -116,15 +109,13 @@ RSpec.describe Legion::Transport::Connection::Vault do
 
     context 'when Mtls.issue_cert raises' do
       before do
-        allow(Legion::Settings).to receive(:[]).with(:transport).and_return(
-          { tls: { vault_pki: true }, connection: { host: '127.0.0.1' } }
-        )
-        allow(Legion::Settings).to receive(:[]).with(:client).and_return({ name: 'test-node' })
+        Legion::Settings[:transport][:tls] = { vault_pki: true }
         mtls = Module.new
         stub_const('Legion::Crypt::Mtls', mtls)
         allow(Legion::Crypt::Mtls).to receive(:enabled?).and_return(true)
         allow(Legion::Crypt::Mtls).to receive(:issue_cert).and_raise(RuntimeError, 'Vault unreachable')
       end
+      after { Legion::Settings[:transport].delete(:tls) }
 
       it 'returns empty hash and does not raise' do
         expect { test_obj.vault_pki_tls_options }.not_to raise_error
@@ -134,18 +125,20 @@ RSpec.describe Legion::Transport::Connection::Vault do
   end
 
   describe '#vault_pki_enabled?' do
+    after { Legion::Settings[:transport].delete(:tls) }
+
     it 'returns false when transport.tls.vault_pki is false' do
-      allow(Legion::Settings).to receive(:[]).with(:transport).and_return({ tls: { vault_pki: false } })
+      Legion::Settings[:transport][:tls] = { vault_pki: false }
       expect(test_obj.vault_pki_enabled?).to be false
     end
 
     it 'returns false when tls key is missing' do
-      allow(Legion::Settings).to receive(:[]).with(:transport).and_return({})
+      Legion::Settings[:transport].delete(:tls)
       expect(test_obj.vault_pki_enabled?).to be false
     end
 
     it 'returns true when vault_pki is true' do
-      allow(Legion::Settings).to receive(:[]).with(:transport).and_return({ tls: { vault_pki: true } })
+      Legion::Settings[:transport][:tls] = { vault_pki: true }
       expect(test_obj.vault_pki_enabled?).to be true
     end
   end
