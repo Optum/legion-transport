@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.4.25] - 2026-05-15
+
+### Added
+- `Message#identity_headers` now emits `x-legion-identity-db-principal-id` and `x-legion-identity-db-identity-id` as integer AMQP headers when non-nil, enabling downstream consumers (e.g. legion-apollo `inject_identity_context`) to use the DB primary keys without string parsing. Nil values are omitted.
+
 ## [1.4.24] - 2026-05-11
 
 ### Fixed
