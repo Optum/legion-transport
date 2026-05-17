@@ -336,7 +336,8 @@ module Legion
           return false unless channel.respond_to?(:consumers)
 
           !channel.consumers.empty?
-        rescue StandardError
+        rescue StandardError => e
+          handle_exception(e, level: :debug, handled: true, operation: 'transport.connection.channel_has_consumers?')
           false
         end
 
