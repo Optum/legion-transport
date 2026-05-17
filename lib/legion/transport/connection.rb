@@ -87,6 +87,12 @@ module Legion
 
           sweep_dead_thread_channels
 
+          current_size = channel_registry_size
+          if current_size >= MAX_PUBLISHER_CHANNELS
+            log.warn "Channel registry at capacity (size=#{current_size}, max=#{MAX_PUBLISHER_CHANNELS}); " \
+                     'RabbitMQ channel_max exhaustion risk — investigate thread lifecycle'
+          end
+
           @channel_thread.value = s.create_channel(nil, settings[:channel][:default_worker_pool_size], false, 10)
           @channel_thread.value.prefetch(settings[:prefetch])
           track_channel(Thread.current, @channel_thread.value)
