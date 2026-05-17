@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.4.27] - 2026-05-17
+
+### Fixed
+- Fixed race condition in channel registry iteration: `sweep_dead_thread_channels` and `close_all_tracked_channels` used `.each` on the live hash while parallel boot threads (`hook_subscription_actors_pooled`) concurrently called `track_channel`, raising `"can't add a new key into hash during iteration"` on Ruby 3.4. Replaced with `.keys.each` which snapshots the key list into an Array before iterating.
+
 ## [1.4.26] - 2026-05-16
 
 ### Fixed
