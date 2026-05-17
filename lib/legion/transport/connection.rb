@@ -11,6 +11,7 @@ module Legion
     module Connection
       RECOVERY_WINDOW = 60
       MAX_RECOVERIES_PER_WINDOW = 5
+      MAX_PUBLISHER_CHANNELS = 128
 
       class << self
         include Legion::Logging::Helper
@@ -36,6 +37,7 @@ module Legion
         def reconnect(connection_name: 'Legion', **)
           @session = nil
           @channel_thread = Concurrent::ThreadLocalVar.new(nil)
+          @channel_registry = Concurrent::Hash.new
           setup(connection_name: connection_name)
         end
 
@@ -83,9 +85,18 @@ module Legion
           s = session
           raise IOError, 'transport session unavailable (recovery in progress)' unless s&.open?
 
+          sweep_dead_thread_channels
+
+          current_size = channel_registry_size
+          if current_size >= MAX_PUBLISHER_CHANNELS
+            log.warn "Channel registry at capacity (size=#{current_size}, max=#{MAX_PUBLISHER_CHANNELS}); " \
+                     'RabbitMQ channel_max exhaustion risk — investigate thread lifecycle'
+          end
+
           @channel_thread.value = s.create_channel(nil, settings[:channel][:default_worker_pool_size], false, 10)
           @channel_thread.value.prefetch(settings[:prefetch])
-          log.debug "Channel created for thread #{Thread.current.object_id}"
+          track_channel(Thread.current, @channel_thread.value)
+          log.debug "Channel created for thread #{Thread.current.object_id} (tracked=#{channel_registry_size})"
           @channel_thread.value
         end
 
@@ -127,6 +138,7 @@ module Legion
           @shutting_down = true
           pre_mark_sessions_closing
           close_build_session
+          close_all_tracked_channels
 
           if @pool
             @pool.shutdown
@@ -150,6 +162,7 @@ module Legion
         ensure
           @log_channel = nil
           @session = nil
+          @channel_registry = Concurrent::Hash.new
           @shutting_down = false
         end
 
@@ -163,6 +176,7 @@ module Legion
           reset_pool if pool_mode
           @session = nil
           @channel_thread = Concurrent::ThreadLocalVar.new(nil)
+          @channel_registry = Concurrent::Hash.new
           @recovery_timestamps = []
 
           tear_down_session(old) if old && !pool_mode
@@ -272,7 +286,49 @@ module Legion
           sess
         end
 
+        def channel_registry_size
+          (@channel_registry ||= Concurrent::Hash.new).size
+        end
+
         private
+
+        def track_channel(thread, channel)
+          @channel_registry ||= Concurrent::Hash.new
+          @channel_registry[thread] = channel
+        end
+
+        def close_all_tracked_channels
+          @channel_registry ||= Concurrent::Hash.new
+          return if @channel_registry.empty?
+
+          @channel_registry.each_value do |channel|
+            channel.close if channel&.open?
+          rescue StandardError => e
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.close_tracked_channel')
+          end
+          @channel_registry.clear
+        end
+
+        def sweep_dead_thread_channels
+          @channel_registry ||= Concurrent::Hash.new
+          return if @channel_registry.empty?
+
+          swept = 0
+          @channel_registry.each do |thread, channel|
+            next if thread&.alive?
+
+            if channel&.open?
+              channel.close
+              swept += 1
+            end
+            @channel_registry.delete(thread)
+          rescue StandardError => e
+            @channel_registry.delete(thread)
+            handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.sweep_channel')
+          end
+
+          log.info "Swept #{swept} orphaned channel(s) from dead threads (remaining=#{@channel_registry.size})" if swept.positive?
+        end
 
         def pre_mark_sessions_closing
           candidates = [
@@ -493,6 +549,7 @@ module Legion
           @log_channel = nil
           @session = Concurrent::AtomicReference.new(create_session_with_failover(connection_name: connection_name))
           @channel_thread = Concurrent::ThreadLocalVar.new(nil)
+          @channel_registry = Concurrent::Hash.new
           start_session(session)
           qos_channel = session.create_channel(nil, settings[:channel][:session_worker_pool_size])
           apply_qos_and_close(qos_channel)

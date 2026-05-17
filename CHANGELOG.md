@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.4.26] - 2026-05-16
+
+### Fixed
+- Fixed channel leak caused by concurrent-ruby's IO-pool thread lifecycle: `TimerTask` (used by `Every` actors) dispatches onto `global_io_executor` threads that idle-timeout after 60s; thread-local Bunny channels were never closed when those threads died, eventually exhausting RabbitMQ's `channel_max` (1024). Added a `@channel_registry` that tracks publisher channels by owning thread and sweeps orphaned channels from dead threads before creating new ones.
+- `Connection.shutdown` now explicitly closes all tracked publisher channels before tearing down the session.
+- `Connection.force_reconnect` resets the channel registry to prevent stale references after reconnection.
+
 ## [1.4.25] - 2026-05-15
 
 ### Added
