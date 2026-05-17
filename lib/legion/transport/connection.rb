@@ -319,17 +319,26 @@ module Legion
 
             channel = @channel_registry.delete(thread)
             next unless channel
+            next unless channel.open?
+            next if channel_has_consumers?(channel)
 
-            if channel.open?
-              channel.close
-              swept += 1
-            end
+            channel.close
+            swept += 1
           rescue StandardError => e
             @channel_registry.delete(thread)
             handle_exception(e, level: :warn, handled: true, operation: 'transport.connection.sweep_channel')
           end
 
           log.info "Swept #{swept} orphaned channel(s) from dead threads (remaining=#{@channel_registry.size})" if swept.positive?
+        end
+
+        def channel_has_consumers?(channel)
+          return false unless channel.respond_to?(:consumers)
+
+          !channel.consumers.empty?
+        rescue StandardError => e
+          handle_exception(e, level: :debug, handled: true, operation: 'transport.connection.channel_has_consumers?')
+          false
         end
 
         def pre_mark_sessions_closing

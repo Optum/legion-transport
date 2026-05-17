@@ -14,8 +14,8 @@ RSpec.describe 'Connection dead-thread channel sweep' do
   end
 
   describe '#sweep_dead_thread_channels' do
-    it 'closes channels from dead threads' do
-      channel = instance_double('Bunny::Channel', open?: true)
+    it 'closes channels from dead threads with no consumers' do
+      channel = instance_double('Bunny::Channel', open?: true, consumers: {})
       dead_thread = instance_double('Thread', alive?: false)
 
       registry = connection.instance_variable_get(:@channel_registry)
@@ -38,6 +38,19 @@ RSpec.describe 'Connection dead-thread channel sweep' do
       expect(registry.size).to eq(1)
     end
 
+    it 'does not close channels with active consumers even if thread is dead' do
+      consumer = instance_double('Bunny::Consumer')
+      channel = instance_double('Bunny::Channel', open?: true, consumers: { 'tag' => consumer })
+      dead_thread = instance_double('Thread', alive?: false)
+
+      registry = connection.instance_variable_get(:@channel_registry)
+      registry[dead_thread] = channel
+
+      expect(channel).not_to receive(:close)
+      connection.send(:sweep_dead_thread_channels)
+      expect(registry).to be_empty
+    end
+
     it 'removes dead-thread entries even when channel is already closed' do
       channel = instance_double('Bunny::Channel', open?: false)
       dead_thread = instance_double('Thread', alive?: false)
@@ -50,7 +63,7 @@ RSpec.describe 'Connection dead-thread channel sweep' do
     end
 
     it 'handles channel.close raising an exception' do
-      channel = instance_double('Bunny::Channel', open?: true)
+      channel = instance_double('Bunny::Channel', open?: true, consumers: {})
       dead_thread = instance_double('Thread', alive?: false)
       allow(channel).to receive(:close).and_raise(RuntimeError, 'already closed')
 
@@ -104,7 +117,7 @@ RSpec.describe 'Connection dead-thread channel sweep' do
 
   describe 'integration: threads that die release channels' do
     it 'sweeps channels from threads that have terminated' do
-      channel = instance_double('Bunny::Channel', open?: true)
+      channel = instance_double('Bunny::Channel', open?: true, consumers: {})
       dead_thread = Thread.new { nil }
       dead_thread.join
 

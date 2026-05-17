@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.4.28] - 2026-05-17
+
+### Fixed
+- Fixed sweep closing channels that still have active Bunny consumers: subscription actors are instantiated on pool threads that subsequently die, but the channel is handed off to Bunny's `ConsumerWorkPool`. The sweep now checks `channel.consumers` and skips channels with registered consumers.
+
 ## [1.4.27] - 2026-05-17
 
 ### Fixed
