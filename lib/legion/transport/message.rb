@@ -7,6 +7,8 @@ module Legion
     class Message
       include Legion::Transport::Common
 
+      LEGION_PROTOCOL_VERSION = '2.0'
+
       class << self
         include Legion::Logging::Helper
       end
@@ -258,7 +260,8 @@ module Legion
 
       def headers
         @options[:headers] ||= Concurrent::Hash.new
-        @options[:headers]['legion_protocol_version'] ||= '2.0'
+        @options[:headers]['legion_protocol_version'] ||= LEGION_PROTOCOL_VERSION
+        inject_legion_version_header
         inject_region_header
         inject_legion_region_header
         %i[task_id relationship_id trigger_namespace_id trigger_function_id parent_id master_id runner_namespace runner_class namespace_id function_id function
@@ -345,6 +348,12 @@ module Legion
         @options[:headers].merge!(identity_headers)
       rescue LoadError, StandardError => e
         handle_exception(e, level: :warn, handled: true, operation: 'transport.message.inject_identity_headers')
+      end
+
+      def inject_legion_version_header
+        return unless defined?(Legion::VERSION)
+
+        @options[:headers]['x-legion-version'] ||= Legion::VERSION.to_s
       end
 
       def inject_region_header

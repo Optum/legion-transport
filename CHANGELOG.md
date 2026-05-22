@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.4.29] - 2026-05-22
+
+### Added
+- `Message#headers` now emits best-effort `x-legion-version` when `Legion::VERSION` is loaded, alongside the existing `legion_protocol_version` protocol marker.
+
 ## [1.4.28] - 2026-05-17
 
 ### Fixed
