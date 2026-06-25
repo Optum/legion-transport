@@ -1,9 +1,0 @@
-Legion::Transport(legion-transport)
-Copyright 2021 Optum
-
-Project Description:
-====================
-Connects the LegionIO framework to the transport tier(RabbitMQ)
-
-Author(s):
-Esity

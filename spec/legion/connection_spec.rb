@@ -1,12 +1,14 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'legion/settings'
 Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default)
 require 'legion/transport'
 require 'legion/transport/connection'
 
-RSpec.describe Legion::Transport::Connection do
+RSpec.describe Legion::Transport::Connection, :rabbitmq do
   it '.connector' do
-    expect(Legion::Transport::Connection.connector).to eq ::Bunny
+    expect(Legion::Transport::Connection.connector).to eq Bunny
   end
 
   it '.setup' do
@@ -29,7 +31,7 @@ RSpec.describe Legion::Transport::Connection do
   end
 
   it '.channel_thread' do
-    expect(@conn.channel_thread).to be_a ::Bunny::Channel
+    expect(@conn.channel_thread).to be_a Bunny::Channel
   end
 
   it 'returns true with additional setup command' do
@@ -38,13 +40,13 @@ RSpec.describe Legion::Transport::Connection do
 
   it '.channel' do
     expect(@conn.channel).not_to be_nil
-    expect(@conn.channel).to be_a ::Bunny::Channel
+    expect(@conn.channel).to be_a Bunny::Channel
     expect(@conn.channel).to eq(@conn.channel)
   end
 
   it '.session' do
     expect(@conn.session).not_to be_nil
-    expect(@conn.session).to be_a ::Bunny::Session
+    expect(@conn.session).to be_a Bunny::Session
   end
 
   it '.channel_open?' do
@@ -68,6 +70,39 @@ RSpec.describe Legion::Transport::Connection do
     expect(@conn.session_open?).to eq false
     expect { @conn.setup }.not_to raise_exception
     expect(@conn.session_open?).to eq true
+  end
+
+  it 'includes resolved_hosts in settings' do
+    conn_settings = Legion::Settings[:transport][:connection]
+    expect(conn_settings[:resolved_hosts]).to be_a(Array)
+    expect(conn_settings[:resolved_hosts]).not_to be_empty
+  end
+
+  describe '.log_channel' do
+    it 'returns nil in lite mode' do
+      allow(Legion::Transport::Connection).to receive(:lite_mode?).and_return(true)
+      expect(Legion::Transport::Connection.log_channel).to be_nil
+    end
+  end
+
+  describe '.build_session' do
+    before { Legion::Transport::Connection.close_build_session }
+
+    it 'open_build_session is a no-op in lite mode' do
+      allow(Legion::Transport::Connection).to receive(:lite_mode?).and_return(true)
+      Legion::Transport::Connection.open_build_session
+      expect(Legion::Transport::Connection.build_session_open?).to be false
+    end
+
+    it 'close_build_session is safe when no build session exists' do
+      expect { Legion::Transport::Connection.close_build_session }.not_to raise_error
+    end
+
+    it 'routes to build_channel when thread flag is set' do
+      allow(Legion::Transport::Connection).to receive(:lite_mode?).and_return(true)
+      # In lite mode, build session doesn't open, so channel falls through to normal path
+      expect { Legion::Transport::Connection.channel }.not_to raise_error
+    end
   end
 
   it 'can initialize a new duplicate object' do

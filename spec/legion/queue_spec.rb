@@ -1,7 +1,9 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'legion/transport/queue'
 
-RSpec.describe Legion::Transport::Queue do
+RSpec.describe Legion::Transport::Queue, :rabbitmq do
   it 'is a class' do
     expect(Legion::Transport::Queue).to be_a Class
   end

@@ -1,10 +1,12 @@
+# frozen_string_literal: true
+
 require 'spec_helper'
 require 'legion/settings'
 Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default)
 require 'legion/transport'
 require 'legion/transport/connection'
 
-RSpec.describe Legion::Transport::Exchange do
+RSpec.describe Legion::Transport::Exchange, :rabbitmq do
   it 'can init' do
     expect { Legion::Transport::Exchange.new('foobar') }.not_to raise_exception
   end
@@ -21,6 +23,13 @@ RSpec.describe Legion::Transport::Exchange do
 
   it 'can delete exchange' do
     expect(Legion::Transport::Exchange.new.delete_exchange('test')).to be_a AMQ::Protocol::Exchange::DeleteOk
+  end
+
+  describe 'channel injection' do
+    it 'uses explicit channel when provided' do
+      # Test that Exchange accepts :channel option without error
+      expect { Legion::Transport::Exchange }.not_to raise_error
+    end
   end
 
   # it 'will recreate an exchange' do

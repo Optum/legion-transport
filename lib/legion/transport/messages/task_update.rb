@@ -1,14 +1,11 @@
+# frozen_string_literal: true
+
 require 'legion/transport/exchanges/task'
 
 module Legion
   module Exception
-    class InvalidTaskStatus < ArgumentError
-      # exception class
-    end
-
-    class InvalidTaskId < ArgumentError
-      # exception class
-    end
+    class InvalidTaskStatus < ArgumentError; end
+    class InvalidTaskId < ArgumentError; end
   end
 end
 
@@ -29,6 +26,13 @@ module Legion
           transformer = ['transformer.queued', 'transformer.succeeded', 'transformer.exception']
           task = ['task.scheduled', 'task.queued', 'task.completed', 'task.exception', 'task.delayed']
           conditioner + transformer + task
+        end
+
+        def validate
+          raise Legion::Exception::InvalidTaskId unless @options[:task_id].is_a?(Integer) && @options[:task_id].positive?
+          raise Legion::Exception::InvalidTaskStatus unless valid_status.include?(@options[:status])
+
+          @valid = true
         end
       end
     end

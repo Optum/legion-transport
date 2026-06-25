@@ -1,88 +1,143 @@
+# frozen_string_literal: true
+
+require 'legion/logging'
+require 'legion/logging/helper'
 require 'legion/settings'
 
 module Legion
   module Transport
     module Settings
+      extend Legion::Logging::Helper
+
       def self.connection
+        host = ENV['transport.connection.host'] || '127.0.0.1'
+        port = (ENV['transport.connection.port'] || DEFAULT_AMQP_PORT).to_i
+
+        existing = Legion::Settings[:transport][:connection] || {}
+        extra_server  = existing[:server]
+        extra_servers = existing[:servers] || []
+        extra_hosts   = existing[:hosts] || []
+
         {
-          read_timeout: 1,
-          heartbeat: 30,
-          automatically_recover: true,
-          continuation_timeout: 4000,
-          network_recovery_interval: 1,
-          connection_timeout: 1,
-          frame_max: 65_536,
-          user: ENV['transport.connection.user'] || 'guest',
-          password: ENV['transport.connection.password'] || 'guest',
-          host: ENV['transport.connection.host'] || '127.0.0.1',
-          port: ENV['transport.connection.port'] || '5672',
-          vhost: ENV['transport.connection.vhost'] || '/',
-          recovery_attempts: 100,
-          logger_level: ENV['transport.log_level'] || 'info',
-          connected: false
-        }.merge(grab_vault_creds)
+          read_timeout:              3,
+          heartbeat:                 (ENV['transport.connection.heartbeat'] || 30).to_i,
+          automatically_recover:     true,
+          continuation_timeout:      8000,
+          network_recovery_interval: (ENV['transport.connection.recovery_interval'] || 2).to_i,
+          connection_timeout:        (ENV['transport.connection.connection_timeout'] || 10).to_i,
+          frame_max:                 65_536,
+          user:                      ENV['transport.connection.user'] || 'guest',
+          password:                  ENV['transport.connection.password'] || 'guest',
+          host:                      host,
+          port:                      port,
+          vhost:                     ENV['transport.connection.vhost'] || '/',
+          recovery_attempts:         (ENV['transport.connection.recovery_attempts'] || 10).to_i,
+          logger_level:              resolve_log_level,
+          connected:                 false,
+          resolved_hosts:            resolve_hosts(
+            host: host, hosts: Array(extra_hosts),
+            server: extra_server, servers: Array(extra_servers),
+            port: port
+          )
+        }
       end
 
-      def self.grab_vault_creds
-        return {} unless Legion::Settings[:crypt][:vault][:connected]
+      DEFAULT_AMQP_PORT = 5672
 
-        Legion::Transport.logger.info 'Attempting to grab RabbitMQ creds from vault'
-        lease = Legion::Crypt.read('rabbitmq/creds/legion', type: nil)
-        Legion::Transport.logger.debug 'successfully grabbed amqp username from Vault'
-        { user: lease[:username], password: lease[:password] }
-      rescue StandardError
-        Legion::Transport.logger.warn 'Error reading rabbitmq creds from vault'
-        {}
+      def self.resolve_log_level
+        ENV['transport.log_level'] || ENV['transport.logger_level'] || 'warn'
+      end
+
+      def self.resolve_hosts(host: nil, hosts: [], server: nil, servers: [], port: nil)
+        port ||= DEFAULT_AMQP_PORT
+
+        all = Array(hosts) + Array(servers) + Array(host) + Array(server)
+        all = ["127.0.0.1:#{port}"] if all.empty?
+
+        all.map! { |s| s.to_s.include?(':') ? s.to_s : "#{s}:#{port}" }
+        all.uniq
       end
 
       def self.channel
         {
           default_worker_pool_size: ENV['transport.channel.default_worker_pool_size'] || 1,
-          session_worker_pool_size: ENV['transport.channel.session_worker_pool_size'] || 8
+          session_worker_pool_size: ENV['transport.channel.session_worker_pool_size'] || 16
         }
       end
 
       def self.queues
         {
-          manual_ack: true,
-          durable: true,
-          exclusive: false,
-          block: false,
+          manual_ack:  true,
+          durable:     true,
+          exclusive:   false,
+          block:       false,
           auto_delete: false,
-          arguments: { 'x-max-priority': 255, 'x-overflow': 'reject-publish' }
+          arguments:   { 'x-queue-type': 'quorum' }
         }
       end
 
       def self.exchanges
         {
-          type: 'topic',
-          arguments: {},
+          type:        'topic',
+          arguments:   {},
           auto_delete: false,
-          durable: true,
-          internal: false
+          durable:     true,
+          internal:    false
         }
       end
 
       def self.messages
         {
-          encrypt: ENV['transport.messsages.encrypt'] == 'true',
-          ttl: ENV['transport.messages.ttl'],
-          priority: ENV['transport.messages.priority'].to_i || 0,
+          encrypt:    ENV['transport.messages.encrypt'] == 'true',
+          ttl:        ENV.fetch('transport.messages.ttl', nil),
+          priority:   ENV['transport.messages.priority'].to_i,
           persistent: ENV['transport.messages.persistent'] == 'true'
         }
       end
 
-      def self.default
+      def self.tenant_topology
         {
-          type: 'rabbitmq',
-          connected: false,
-          logger_level: ENV['transport.logger_level'] || 'info',
-          messages: messages,
-          prefetch: ENV['transport.prefetch'].to_i || 2,
-          exchanges: exchanges,
-          queues: queues,
-          connection: connection,
-          channel: channel
+          enabled:          false,
+          prefix_format:    't.%<tenant_id>s.%<name>s',
+          shared_exchanges: %w[legion.control legion.health legion.audit],
+          auto_provision:   true,
+          quotas:           {}
+        }
+      end
+
+      def self.kafka
+        require_relative 'kafka/defaults'
+        Legion::Transport::Kafka::DEFAULTS.dup.tap do |k|
+          k[:enabled] = ENV['transport.kafka.enabled'] == 'true'
+          k[:brokers] = ENV['transport.kafka.brokers'].split(',').map(&:strip) if ENV['transport.kafka.brokers']
+          k[:consumer_group] = ENV['transport.kafka.consumer_group'] if ENV['transport.kafka.consumer_group']
+        end
+      end
+
+      def self.default
+        cluster_csv = ENV.fetch('transport.cluster_nodes', '')
+        {
+          type:                 'rabbitmq',
+          connected:            false,
+          logger_level:         resolve_log_level,
+          messages:             messages,
+          prefetch:             ENV['transport.prefetch'].to_i,
+          exchanges:            exchanges,
+          queues:               queues,
+          connection:           connection,
+          channel:              channel,
+          tenant_topology:      tenant_topology,
+          kafka:                kafka,
+          cluster_nodes:        cluster_csv.empty? ? [] : cluster_csv.split(',').map(&:strip),
+          connection_pool_size: (ENV['transport.connection_pool_size'] || 1).to_i,
+          max_payload_bytes:    (ENV['transport.max_payload_bytes'] || 1_048_576).to_i,
+          region:               ENV.fetch('transport.region', nil),
+          management_port:      (ENV['transport.management_port'] || 15_672).to_i,
+          quorum_queue_policy:  {
+            enabled:        ENV['transport.quorum_queue_policy.enabled'] == 'true',
+            pattern:        ENV['transport.quorum_queue_policy.pattern'] || '^legion\\.',
+            delivery_limit: (ENV['transport.quorum_queue_policy.delivery_limit'] || 5).to_i
+          }
         }
       end
     end
@@ -90,7 +145,7 @@ module Legion
 end
 
 begin
-  Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default) if Legion.const_defined?('Settings')
-rescue StandardError
-  Legion::Transport.logger.fatal(e.message)
+  Legion::Settings.merge_settings('transport', Legion::Transport::Settings.default)
+rescue StandardError => e
+  Legion::Transport::Settings.handle_exception(e, level: :fatal, handled: true, operation: 'transport.settings.merge')
 end

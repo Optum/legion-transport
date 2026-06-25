@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Legion::Transport::Messages # rubocop:disable Style/ClassAndModuleChildren
   class Dynamic < Legion::Transport::Message
     attr_accessor :options
@@ -7,12 +9,14 @@ module Legion::Transport::Messages # rubocop:disable Style/ClassAndModuleChildre
     end
 
     def message
-      { args: @options[:args] || @options,
+      { args:     @options[:args] || @options,
         function: function.values[:name] }
     end
 
     def routing_key
-      "#{function.runner.extension.values[:name]}.#{function.runner.values[:name]}.#{function.values[:name]}"
+      key = "#{function.runner.extension.values[:name]}.#{function.runner.values[:name]}.#{function.values[:name]}"
+      log.debug "Dynamic routing_key=#{key} function_id=#{@options[:function_id]}"
+      key
     end
 
     def exchange

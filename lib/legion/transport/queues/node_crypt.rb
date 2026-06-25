@@ -1,9 +1,11 @@
+# frozen_string_literal: true
+
 module Legion
   module Transport
     module Queues
       class NodeCrypt < Legion::Transport::Queue
         def queue_name
-          'node.status'
+          'node.crypt'
         end
 
         def queue_options

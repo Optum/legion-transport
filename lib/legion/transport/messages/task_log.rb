@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'legion/transport/exchanges/task'
 
 module Legion
@@ -24,9 +26,7 @@ module Legion
 
         def validate
           @options[:task_id] = @options[:task_id].to_i if @options[:task_id].is_a? String
-          unless @options[:task_id].is_a? Integer
-            raise "task_id must be an integer but is #{@options[:task_id].class}(#{@options[:task_id]})"
-          end
+          raise "task_id must be an integer but is #{@options[:task_id].class}(#{@options[:task_id]})" unless @options[:task_id].is_a? Integer
 
           @valid = true
         end
